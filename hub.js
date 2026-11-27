@@ -351,6 +351,136 @@ document.getElementById('btn-refresh').onclick=async()=>{try{const r=await fetch
 load();setInterval(load,2000);
 </script></body></html>`;
 
+// ------------------------------- BIG SCREEN -------------------------------
+const SCREEN_HTML = String.raw`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>tinyprobe · 中控大屏</title><style>
+:root{--bg:#050b17;--panel:rgba(16,32,58,.72);--bd:#1d3a63;--fg:#e8f4ff;--mut:#6f8bb3;--cyan:#00e5ff;--blue:#2f8fff;--grn:#00e59a;--org:#ffb020;--red:#ff4d5e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(ellipse at 50% -20%,#0d2749 0%,#050b17 60%);color:var(--fg);font-family:"Segoe UI",Arial,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+body::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(47,143,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(47,143,255,.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none}
+.head{flex:0 0 66px;display:flex;align-items:center;justify-content:center;position:relative;border-bottom:1px solid var(--bd)}
+.head h1{font-size:26px;letter-spacing:5px;font-weight:700;text-shadow:0 0 18px rgba(0,229,255,.6)}
+.head .en{position:absolute;top:44px;font-size:10px;letter-spacing:4px;color:var(--mut)}
+.head .clock{position:absolute;right:24px;text-align:right;font-size:20px;font-variant-numeric:tabular-nums;color:var(--cyan)}
+.head .clock small{display:block;font-size:11px;color:var(--mut);letter-spacing:1px}
+.head .link{position:absolute;left:24px;font-size:12px;color:var(--mut)}.head .link a{color:var(--cyan);text-decoration:none}
+.grid{flex:1;display:grid;grid-template-columns:300px 1fr 300px;grid-template-rows:1fr 240px;gap:12px;padding:14px 16px;min-height:0}
+.panel{background:var(--panel);border:1px solid var(--bd);border-radius:6px;position:relative;padding:12px 14px;overflow:hidden;backdrop-filter:blur(4px)}
+.panel::before,.panel::after{content:"";position:absolute;width:14px;height:14px;border-color:var(--cyan);border-style:solid}.panel::before{left:-1px;top:-1px;border-width:2px 0 0 2px}.panel::after{right:-1px;bottom:-1px;border-width:0 2px 2px 0}
+.ttl{font-size:13px;color:var(--cyan);letter-spacing:2px;margin-bottom:10px;padding-left:10px;border-left:3px solid var(--cyan)}
+.ttl small{float:right;color:var(--mut);font-size:10px;letter-spacing:0}
+/* KPI */
+.kpis{grid-column:2;grid-row:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:110px 1fr;gap:12px;min-height:0}
+.kpi{display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--bd);border-radius:6px;position:relative}
+.kpi .num{font-size:46px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1;text-shadow:0 0 16px currentColor}
+.kpi .lbl{font-size:12px;color:var(--mut);margin-top:8px;letter-spacing:1px}
+.kpi .unit{font-size:16px;color:var(--mut);margin-left:2px}
+.chart{grid-column:2;grid-row:2;display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0}
+.chart .panel{display:flex;flex-direction:column}
+.chart svg{width:100%;height:100%;flex:1}
+/* left / right */
+.left{grid-column:1;grid-row:1/3;display:flex;flex-direction:column;gap:12px;min-height:0}
+.right{grid-column:3;grid-row:1/3;display:flex;flex-direction:column;gap:12px;min-height:0}
+.donut-wrap{display:flex;align-items:center;gap:10px;flex:1}
+.donut{width:120px;height:120px;flex:0 0 120px}
+.legend{flex:1;font-size:12px}.legend div{display:flex;justify-content:space-between;padding:3px 0;color:var(--mut)}
+.legend b{color:var(--fg);font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+.bars{flex:1;display:flex;flex-direction:column;justify-content:space-around}
+.brow{font-size:11px}.brow .t{display:flex;justify-content:space-between;color:var(--mut);margin-bottom:3px}
+.btrack{height:8px;background:#0c1e33;border-radius:4px;overflow:hidden}.bfill{height:100%;border-radius:4px;transition:width .6s}
+.alerts{flex:1;overflow:hidden;font-size:12px}.alert{padding:7px 8px;margin-bottom:6px;border-left:3px solid var(--org);background:rgba(255,176,32,.08);border-radius:3px;color:#ffd98a}
+.alert.crit{border-color:var(--red);background:rgba(255,77,94,.1);color:#ffb3ba}
+.alert .tm{color:var(--mut);font-size:10px;margin-right:6px}
+.ok-empty{color:var(--grn);font-size:12px;text-align:center;padding:20px 0}
+.rank{flex:1;overflow:hidden;font-size:12px}.rk{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(29,58,99,.5)}
+.rk .n{width:18px;color:var(--mut);text-align:center}.rk .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk .mini{width:70px;height:6px;background:#0c1e33;border-radius:3px;overflow:hidden}.rk .mini i{display:block;height:100%}.rk .v{width:40px;text-align:right;font-variant-numeric:tabular-nums;color:var(--cyan)}
+.matrix{grid-column:2;grid-row:1;display:none}
+.archbar{display:flex;flex-wrap:wrap;gap:6px}.ach{font-size:11px;padding:3px 9px;border:1px solid var(--bd);border-radius:12px;color:var(--mut)}.ach b{color:var(--cyan);margin-left:4px}
+</style></head><body>
+<div class="head">
+ <div class="link">控制台 <a href="/">/ 返回</a></div>
+ <h1>TINYPROBE 服务器监控中心</h1><div class="en">GLOBAL INFRASTRUCTURE MONITORING CENTER</div>
+ <div class="clock"><span id="clock">--:--:--</span><small id="date">----</small></div>
+</div>
+<div class="grid">
+ <!-- LEFT -->
+ <div class="left">
+  <div class="panel" style="flex:0 0 190px"><div class="ttl">在线状态 <small id="onlint">ONLINE / TOTAL</small></div><div class="donut-wrap"><svg class="donut" viewBox="0 0 42 42"><circle cx="21" cy="21" r="15.9" fill="none" stroke="#0c1e33" stroke-width="4"></circle><circle id="donutArc" cx="21" cy="21" r="15.9" fill="none" stroke="#00e59a" stroke-width="4" stroke-dasharray="0 100" stroke-linecap="round" transform="rotate(-90 21 21)"></circle></svg><div class="legend" id="onlLegend"></div></div></div>
+  <div class="panel" style="flex:0 0 200px"><div class="ttl">集群资源 <small>CLUSTER LOAD</small></div><div class="bars" id="resBars"></div></div>
+  <div class="panel" style="flex:1"><div class="ttl">架构分布 <small>ARCH</small></div><div class="archbar" id="archBar"></div></div>
+ </div>
+ <!-- CENTER -->
+ <div class="kpis">
+  <div class="kpi" style="color:var(--cyan)"><div class="num" id="kHosts">0</div><div class="lbl">主机总数 HOSTS</div></div>
+  <div class="kpi" style="color:var(--grn)"><div class="num" id="kOnline">0</div><div class="lbl">在线节点 ONLINE</div></div>
+  <div class="kpi" style="color:var(--org)"><div class="num" id="kCpu">0<span class="unit">%</span></div><div class="lbl">平均 CPU</div></div>
+  <div class="kpi" style="color:var(--blue)"><div class="num" id="kMem">0<span class="unit">%</span></div><div class="lbl">平均内存</div></div>
+  <div class="chart" style="grid-column:1/5;grid-row:2">
+   <div class="panel"><div class="ttl">CPU 使用趋势 <small>ALL NODES AVG</small></div><svg id="cpuChart" viewBox="0 0 100 40" preserveAspectRatio="none"></svg></div>
+   <div class="panel"><div class="ttl">内存使用趋势 <small>ALL NODES AVG</small></div><svg id="memChart" viewBox="0 0 100 40" preserveAspectRatio="none"></svg></div>
+  </div>
+ </div>
+ <!-- RIGHT -->
+ <div class="right">
+  <div class="panel" style="flex:0 0 230px"><div class="ttl">实时告警 <small id="alertCount">0</small></div><div class="alerts" id="alerts"></div></div>
+  <div class="panel" style="flex:1"><div class="ttl">CPU 负载 TOP <small>TOP NODES</small></div><div class="rank" id="rank"></div></div>
+ </div>
+</div>
+<script>
+const H=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const human=b=>{if(b==null)return '-';const u=['B','K','M','G','T'];let i=0;while(b>=1024&&i<u.length-1){b/=1024;i++}return b.toFixed(i?1:0)+u[i]};
+const cls=v=>v>=85?'#ff4d5e':v>=65?'#ffb020':'#00e59a';
+function tickClock(){const d=new Date();document.getElementById('clock').textContent=d.toLocaleTimeString('zh-CN',{hour12:false});document.getElementById('date').textContent=d.toLocaleDateString('zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',weekday:'long'})}
+setInterval(tickClock,1000);tickClock();
+function line(svgId,vals,color){const el=document.getElementById(svgId);if(!vals.length){el.innerHTML='';return}const n=vals.length,w=100,h=40;const pts=vals.map((v,i)=>(i/(n-1||1)*w).toFixed(2)+','+(h-Math.min(100,v)/100*h).toFixed(2)).join(' ');const area='0,'+h+' '+pts+' '+w+','+h;el.innerHTML='<defs><linearGradient id="g'+svgId+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+color+'" stop-opacity=".35"/><stop offset="1" stop-color="'+color+'" stop-opacity="0"/></linearGradient></defs><polygon points="'+area+'" fill="url(#g'+svgId+')"/><polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="1"/>';}
+function load(){
+ try{fetch('/api/data',{cache:'no-store'}).then(r=>r.json()).then(s=>render(s)).catch(e=>{}) }catch(e){}
+}
+let cpuTrend=[],memTrend=[];
+function render(s){
+ const hs=s.hosts||[],total=hs.length,onl=hs.filter(h=>h.online).length;
+ document.getElementById('kHosts').textContent=total;
+ document.getElementById('kOnline').textContent=onl;
+ const avg=(key)=>total?hs.reduce((a,h)=>a+(Number(h[key])||0),0)/total:0;
+ const ac=avg('cpu'),am=hs.length?hs.reduce((a,h)=>a+(h.mem?.percent||0),0)/hs.length:0;
+ document.getElementById('kCpu').innerHTML=ac.toFixed(1)+'<span class="unit">%</span>';
+ document.getElementById('kMem').innerHTML=am.toFixed(1)+'<span class="unit">%</span>';
+ // donut
+ const pct=total?onl/total*100:0;document.getElementById('donutArc').setAttribute('stroke-dasharray',pct.toFixed(1)+' '+(100-pct).toFixed(1));
+ document.getElementById('onlint').textContent=onl+' / '+total;
+ document.getElementById('onlLegend').innerHTML='<div><span><i class="dot" style="background:#00e59a"></i>在线</span><b>'+onl+'</b></div><div><span><i class="dot" style="background:#ff4d5e"></i>离线</span><b>'+(total-onl)+'</b></div><div><span><i class="dot" style="background:#2f8fff"></i>在线率</span><b>'+pct.toFixed(0)+'%</b></div>';
+ // cluster resources bars
+ const sum=(f)=>hs.reduce((a,h)=>a+(f(h)||0),0);
+ const memP=hs.length?hs.reduce((a,h)=>a+(h.mem?.percent||0),0)/hs.length:0;
+ const diskP=hs.length?hs.reduce((a,h)=>a+(h.disk?.percent||0),0)/hs.length:0;
+ const netRx=hs.reduce((a,h)=>a+(h.net?.rx||0),0),netTx=hs.reduce((a,h)=>a+(h.net?.tx||0),0);
+ document.getElementById('resBars').innerHTML=[['CPU 平均',ac,'#00e5ff',ac.toFixed(1)+'%'],['内存平均',memP,'#2f8fff',memP.toFixed(1)+'%'],['磁盘平均',diskP,'#ffb020',diskP.toFixed(1)+'%'],['网络下行',Math.min(100,netRx/1e7*100),'#00e59a',human(netRx)+'/s'],['网络上行',Math.min(100,netTx/1e7*100),'#8b7cff',human(netTx)+'/s']].map(x=>'<div class="brow"><div class="t"><span>'+x[0]+'</span><span>'+x[3]+'</span></div><div class="btrack"><div class="bfill" style="width:'+Math.min(100,Math.max(0,x[1]))+'%;background:'+x[2]+'"></div></div></div>').join('');
+ // arch distribution
+ const ac2={};hs.forEach(h=>{const a=h.arch||'?';ac2[a]=(ac2[a]||0)+1});
+ document.getElementById('archBar').innerHTML=Object.entries(ac2).sort((a,b)=>b[1]-a[1]).map(([k,v])=>'<span class="ach">'+H(k)+'<b>'+v+'</b></span>').join('')||'<span class="ach">无数据</span>';
+ // trends
+ cpuTrend.push(ac);memTrend.push(am);if(cpuTrend.length>60)cpuTrend.shift();if(memTrend.length>60)memTrend.shift();
+ line('cpuChart',cpuTrend,'#00e5ff');line('memChart',memTrend,'#2f8fff');
+ // alerts
+ const al=[];hs.forEach(h=>{const m=h.mem?.percent||0,d=h.disk?.percent||0;
+  if(!h.online)al.push({c:1,t:h.name+' 节点离线'});
+  if(m>=85)al.push({c:1,t:h.name+' 内存 '+m.toFixed(0)+'%'});
+  else if(m>=70)al.push({c:0,t:h.name+' 内存偏高 '+m.toFixed(0)+'%'});
+  if(d>=85)al.push({c:1,t:h.name+' 磁盘 '+d.toFixed(0)+'%'});
+  else if(d>=70)al.push({c:0,t:h.name+' 磁盘偏高 '+d.toFixed(0)+'%'});
+  if(h.cpu>=85)al.push({c:1,t:h.name+' CPU '+h.cpu+'%'});
+ });
+ document.getElementById('alertCount').textContent=al.length+' 条';
+ document.getElementById('alerts').innerHTML=al.length?al.slice(0,8).map(a=>'<div class="alert '+(a.c?'crit':'')+'"><span class="tm">'+new Date().toLocaleTimeString('zh-CN',{hour12:false}).slice(0,5)+'</span>'+H(a.t)+'</div>').join(''):'<div class="ok-empty">✓ 一切正常，无告警</div>';
+ // rank top cpu
+ const top=[...hs].sort((a,b)=>(b.cpu||0)-(a.cpu||0)).slice(0,8);
+ document.getElementById('rank').innerHTML=top.map((h,i)=>'<div class="rk"><span class="n">'+(i+1)+'</span><span class="nm">'+H(h.name)+'</span><span class="mini"><i style="width:'+(h.cpu||0)+'%;background:'+cls(h.cpu)+'"></i></span><span class="v">'+(h.cpu||0)+'%</span></div>').join('')||'<span class="ach">无数据</span>';
+}
+load();setInterval(load,2000);
+</script></body></html>`;
+
 const server = http.createServer((req, res) => {
   let u;
   try { u = new URL(req.url, 'http://x'); } catch (_) { res.writeHead(400); return res.end('bad url'); }
@@ -360,12 +490,17 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     return res.end(HTML);
   }
+  if (u.pathname === '/screen') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    return res.end(SCREEN_HTML);
+  }
   res.writeHead(404); res.end('not found');
 });
 
 server.listen(PORT, () => {
   console.log(`tinyprobe hub on http://0.0.0.0:${PORT}`);
   console.log(`console:  http://127.0.0.1:${PORT}`);
+  console.log(`screen:   http://127.0.0.1:${PORT}/screen`);
   console.log(`state:    ${STATE_FILE}`);
   console.log(`admin:    ${ADMIN_TOKEN ? 'token set' : 'no token'}`);
 });
