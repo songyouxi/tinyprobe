@@ -1,10 +1,10 @@
 #!/bin/bash
 # tinyprobe 纯 shell 探针 —— 服务器上不需要 Node/Python/Go，只要 bash + /proc。
 # 用法: bash probe.sh [HUB_URL] [NAME] [INTERVAL_SEC]
-#   HUB_URL 例: http://192.168.1.13:8090   NAME 例: web-01   INTERVAL 默认 2 秒
+#   HUB_URL 例: http://192.168.1.13:47821   NAME 例: web-01   INTERVAL 默认 2 秒
 # 上报走 bash 内置 /dev/tcp，连 curl/wget 都不需要。
 
-HUB="${1:-http://127.0.0.1:8090}"
+HUB="${1:-http://127.0.0.1:47821}"
 NAME="${2:-$(hostname)}"
 INTERVAL="${3:-2}"
 
