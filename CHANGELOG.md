@@ -4,7 +4,7 @@
 
 ### 变更（IP 显示 + 删除主机）
 - **显示 agent 真实 IP**：hub 从上报连接记录来源 IP（`X-Forwarded-For` / socket），主机卡片与远程更新表格展示 IP，不依赖 agent 自报。
-- **删除主机 / 远程卸载**：控制台每张主机卡片新增「删除」按钮 → `DELETE /api/host`（需 admin-token）→ 主机立即从列表移除，并在该 agent 下次上报时下发 `cmd: uninstall`，agent 自动停用并删除自身隐藏目录/服务（Linux systemd + Windows 计划任务）。
+- **删除主机 / 远程卸载**：控制台每张主机卡片新增「删除」按钮 → `DELETE /api/host`（需 admin-token）→ 主机立即从列表移除，并在该 agent 下次上报时下发 `cmd: uninstall`，agent 自动停用并删除自身隐藏目录/服务（Linux systemd + Windows 计划任务）。删除名单持久化，旧 agent 持续上报也无法"复活"该主机，始终回卸载指令。
 
 ### 变更（自托管下载源）
 - **中控自托管下载 `/dl/`**：hub 新增 `/dl/` 路由，直接提供 install.sh / install.ps1 / 15 个架构二进制 / SHA256SUMS，agent 全程只连中控域名+端口，无需访问 GitHub（解决部分服务器访问 GitHub 超时问题）。
