@@ -7,7 +7,12 @@ set -e
 
 HUB="${HUB:-http://127.0.0.1:47821}"
 NAME="${NAME:-$(hostname)}"
+# 绝密：优先用 base64 编码的 TOKEN_B64（命令行不出现明文），兼容明文 TOKEN
+TOKEN_B64="${TOKEN_B64:-}"
 TOKEN="${TOKEN:-}"
+if [ -z "$TOKEN" ] && [ -n "$TOKEN_B64" ]; then
+  TOKEN=$(printf '%s' "$TOKEN_B64" | base64 -d 2>/dev/null || printf '%s' "$TOKEN_B64" | openssl base64 -d -A 2>/dev/null || echo '')
+fi
 REPO="${REPO:-https://github.com/songyouxi/tinyprobe/releases/download}"
 VERSION="${VERSION:-latest}"
 INTERVAL="${INTERVAL:-2}"
@@ -24,6 +29,7 @@ ENV_FILE="$HIDDEN_DIR/.conf"
 while [ $# -gt 0 ]; do
   case "$1" in
     --hub) HUB="$2"; shift 2;; --name) NAME="$2"; shift 2;; --token) TOKEN="$2"; shift 2;;
+    --token-b64) TOKEN_B64="$2"; TOKEN=$(printf '%s' "$2" | base64 -d 2>/dev/null || echo ''); shift 2;;
     --repo) REPO="$2"; shift 2;; --version) VERSION="$2"; shift 2;;
     --interval) INTERVAL="$2"; shift 2;; --service) SERVICE="$2"; shift 2;;
     *) shift;;
