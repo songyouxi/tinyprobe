@@ -247,36 +247,41 @@ function handleApi(req, res, u) {
     const fwdProto = req.headers['x-forwarded-proto'];
     const proto = fwdProto ? fwdProto.split(',')[0] : 'http';
     const hubBase = proto + '://' + hostHdr;
-    const repo = (update.repoBase || 'https://github.com/songyouxi/tinyprobe/releases/download').replace(/\/$/, '');
+    // Download strategy: by default serve everything from THIS hub (/dl/) so
+    // agents never need to reach GitHub. Pass ?source=github to use releases.
+    const source = (u.searchParams.get('source') || 'hub').toLowerCase();
     const ver = (update.version || 'v1.2.1');
+    const version = (u.searchParams.get('version') || ver).trim();
     const token = TOKEN || '';
     const tokenB64 = token ? Buffer.from(token, 'utf8').toString('base64') : '';
-    const rawBase = repo.replace(/\/releases\/download.*$/, '') + '/raw/main';
-    let command, installUrl;
+    const githubRepo = (update.repoBase || 'https://github.com/songyouxi/tinyprobe/releases/download').replace(/\/$/, '');
+    const repo = source === 'github' ? githubRepo : hubBase + '/dl';
+    const installUrl = source === 'github'
+      ? githubRepo.replace(/\/releases\/download.*$/, '') + '/raw/main/install.' + (os === 'windows' ? 'ps1' : 'sh')
+      : hubBase + '/dl/install.' + (os === 'windows' ? 'ps1' : 'sh');
+    const dlVersion = source === 'hub' ? 'latest' : version;
+    let command;
     if (os === 'windows') {
-      // PowerShell: token via base64 env (no plaintext in command line).
-      installUrl = rawBase + '/install.ps1';
       const setEnv = [
         '$env:HUB=' + JSON.stringify(hubBase),
         '$env:NAME=' + JSON.stringify(name),
         tokenB64 ? '$env:TOKEN_B64=' + JSON.stringify(tokenB64) : '',
-        '$env:VERSION=' + JSON.stringify(ver),
+        '$env:VERSION=' + JSON.stringify(dlVersion),
         '$env:REPO=' + JSON.stringify(repo),
       ].filter(Boolean).join('; ');
       command = setEnv + '; irm ' + installUrl + ' | iex';
     } else {
-      installUrl = rawBase + '/install.sh';
       const env = [
         'HUB=' + hubBase,
         'NAME=' + name,
         tokenB64 ? 'TOKEN_B64=' + tokenB64 : '',
-        'VERSION=' + ver,
+        'VERSION=' + dlVersion,
         'REPO=' + repo,
       ].filter(Boolean).join(' ');
       command = 'curl -fsSL ' + installUrl + ' | ' + env + ' bash';
     }
     return json(res, 200, {
-      command, hubBase, name, os, version: ver, repo,
+      command, hubBase, name, os, version, repo, source,
       hasToken: !!token, installUrl,
     });
   }
@@ -619,6 +624,24 @@ const server = http.createServer((req, res) => {
   if (u.pathname === '/screen') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     return res.end(SCREEN_HTML);
+  }
+  // Self-hosted download source: serve installers + binaries so agents never
+  // need to reach GitHub. Whitelist filenames to prevent path traversal.
+  if (u.pathname.startsWith('/dl/')) {
+    const name = u.pathname.slice(4);
+    const allowed = /^(install\.sh|install\.ps1|SHA256SUMS|probe-(linux|windows)-[a-z0-9]+(\.exe)?)$/.test(name);
+    if (!allowed) { res.writeHead(404); return res.end('not found'); }
+    const dlDir = env.TP_DL_DIR || path.join(__dirname, 'dist');
+    const isInstaller = name === 'install.sh' || name === 'install.ps1';
+    const target = isInstaller ? path.join(path.dirname(dlDir), name) : path.join(dlDir, name);
+    fs.readFile(target, (err, data) => {
+      if (err) { res.writeHead(404); return res.end('not found'); }
+      const ct = name.endsWith('.sh') || name.endsWith('.ps1') ? 'text/plain; charset=utf-8'
+        : name === 'SHA256SUMS' ? 'text/plain; charset=utf-8' : 'application/octet-stream';
+      res.writeHead(200, { 'Content-Type': ct, 'Content-Length': data.length });
+      res.end(data);
+    });
+    return;
   }
   res.writeHead(404); res.end('not found');
 });
