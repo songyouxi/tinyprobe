@@ -310,6 +310,11 @@ function handleApi(req, res, u) {
 const HTML = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>tinyprobe 控制台</title><style>
 :root{--bg:#0d1117;--card:#161b22;--bd:#30363d;--fg:#e6edf3;--mut:#8b949e;--ok:#3fb950;--bad:#f85149;--acc:#58a6ff;--warn:#d29922}
+:root[data-theme="light"]{--bg:#f0f3f8;--card:#ffffff;--bd:#d6dce5;--fg:#1f2937;--mut:#667085;--ok:#12864b;--bad:#d1323f;--acc:#1668dc;--warn:#b7791f}
+:root[data-theme="light"] .bar,:root[data-theme="light"] code{background:#e2e8f0}
+:root[data-theme="light"] input,:root[data-theme="light"] textarea{background:#f7f9fc;color:var(--fg)}
+:root[data-theme="light"] .btn{background:#1668dc;color:#fff}
+:root[data-theme="light"] .btn.ghost{background:#eef2f7;color:var(--fg);border-color:var(--bd)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,"Segoe UI",Arial,sans-serif}
 header{padding:12px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 header h1{font-size:16px;margin:0}.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
@@ -341,7 +346,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 code{background:#21262d;padding:1px 5px;border-radius:4px;font-size:12px}
 .tag{font-size:11px;color:var(--mut)}
 </style></head><body>
-<header><span class="dot"></span><h1>tinyprobe 控制台</h1><span class="meta" id="meta">连接中…</span></header>
+<header><span class="dot"></span><h1>tinyprobe 控制台</h1><button class="btn ghost" id="themeBtn" style="margin-left:auto;padding:4px 10px" onclick="toggleTheme()">🌙 暗色</button><span class="meta" id="meta">连接中…</span></header>
 <div class="tabs"><div class="tab active" data-v="hosts">主机</div><div class="tab" data-v="install">接入主机</div><div class="tab" data-v="update">远程更新</div><a class="tab" href="/screen" target="_blank" style="margin-left:auto;color:var(--cyan);text-decoration:none">中控大屏 ↗</a></div>
 <div class="view active" id="v-hosts"><div class="wrap" id="wrap"></div></div>
 <div class="view" id="v-install">
@@ -442,21 +447,29 @@ document.getElementById('btn-save').onclick=async()=>{
 };
 document.getElementById('btn-refresh').onclick=async()=>{try{const r=await fetch('/api/update/refresh-sums',{method:'POST',headers:cfgHeaders()});const j=await r.json();toast(j.ok?('SHA256 已刷新 ('+Object.keys(j.sums||{}).length+' 项)'):(j.error||'失败'))}catch(e){toast('失败: '+e.message)}};
 (function(){const h=(location.hash||'').replace('#','');if(h==='install'||h==='update'){const t=Array.from(document.querySelectorAll('div.tab')).find(x=>x.dataset.v===h);if(t)t.click()}})();
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);const b=document.getElementById('themeBtn');if(b)b.textContent=t==='light'?'☀️ 亮色':'🌙 暗色'}
+function toggleTheme(){const cur=document.documentElement.getAttribute('data-theme')||'dark';const next=cur==='light'?'dark':'light';localStorage.setItem('tp-theme',next);applyTheme(next)}
+applyTheme(localStorage.getItem('tp-theme')||'dark');
 load();setInterval(load,2000);
 </script></body></html>`;
 
 // ------------------------------- BIG SCREEN -------------------------------
 const SCREEN_HTML = String.raw`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>tinyprobe · 中控大屏</title><style>
-:root{--bg:#050b17;--panel:rgba(16,32,58,.72);--bd:#1d3a63;--fg:#e8f4ff;--mut:#6f8bb3;--cyan:#00e5ff;--blue:#2f8fff;--grn:#00e59a;--org:#ffb020;--red:#ff4d5e}
+:root{--bg:#050b17;--panel:rgba(16,32,58,.72);--bd:#1d3a63;--fg:#e8f4ff;--mut:#6f8bb3;--cyan:#00e5ff;--blue:#2f8fff;--grn:#00e59a;--org:#ffb020;--red:#ff4d5e;--grid:rgba(47,143,255,.04)}
+:root[data-theme="light"]{--bg:#eef2f8;--panel:rgba(255,255,255,.86);--bd:#c9d4e3;--fg:#16243d;--mut:#64748b;--cyan:#0a7fb5;--blue:#2563eb;--grn:#0f9d6e;--org:#c77d10;--red:#d1323f;--grid:rgba(37,99,235,.06)}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:radial-gradient(ellipse at 50% -20%,#0d2749 0%,#050b17 60%);color:var(--fg);font-family:"Segoe UI",Arial,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
-body::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(47,143,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(47,143,255,.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none}
+body{background:radial-gradient(ellipse at 50% -20%,#0d2749 0%,var(--bg) 60%);color:var(--fg);font-family:"Segoe UI",Arial,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+:root[data-theme="light"] body{background:radial-gradient(ellipse at 50% -20%,#dce8f7 0%,var(--bg) 60%)}
+body::before{content:"";position:absolute;inset:0;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px;pointer-events:none}
 .head{flex:0 0 66px;display:flex;align-items:center;justify-content:center;position:relative;border-bottom:1px solid var(--bd)}
 .head h1{font-size:26px;letter-spacing:5px;font-weight:700;text-shadow:0 0 18px rgba(0,229,255,.6)}
+:root[data-theme="light"] .head h1{text-shadow:none}
 .head .en{position:absolute;top:44px;font-size:10px;letter-spacing:4px;color:var(--mut)}
 .head .clock{position:absolute;right:24px;text-align:right;font-size:20px;font-variant-numeric:tabular-nums;color:var(--cyan)}
 .head .clock small{display:block;font-size:11px;color:var(--mut);letter-spacing:1px}
+.theme-btn{position:absolute;right:190px;top:22px;background:var(--panel);border:1px solid var(--bd);color:var(--fg);border-radius:6px;padding:5px 11px;cursor:pointer;font-size:12px}
+.theme-btn:hover{border-color:var(--cyan)}
 .head .link{position:absolute;left:24px;font-size:12px;color:var(--mut)}.head .link a{color:var(--cyan);text-decoration:none}
 .grid{flex:1;display:grid;grid-template-columns:300px 1fr 300px;grid-template-rows:1fr 240px;gap:12px;padding:14px 16px;min-height:0}
 .panel{background:var(--panel);border:1px solid var(--bd);border-radius:6px;position:relative;padding:12px 14px;overflow:hidden;backdrop-filter:blur(4px)}
@@ -495,6 +508,7 @@ body::before{content:"";position:absolute;inset:0;background-image:linear-gradie
 </style></head><body>
 <div class="head">
  <div class="link">控制台 <a href="/">/ 返回</a> · <a href="/#install">/ 接入命令</a></div>
+ <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙 暗色</button>
  <h1>TINYPROBE 服务器监控中心</h1><div class="en">GLOBAL INFRASTRUCTURE MONITORING CENTER</div>
  <div class="clock"><span id="clock">--:--:--</span><small id="date">----</small></div>
 </div>
@@ -572,6 +586,9 @@ function render(s){
  const top=[...hs].sort((a,b)=>(b.cpu||0)-(a.cpu||0)).slice(0,8);
  document.getElementById('rank').innerHTML=top.map((h,i)=>'<div class="rk"><span class="n">'+(i+1)+'</span><span class="nm">'+H(h.name)+'</span><span class="mini"><i style="width:'+(h.cpu||0)+'%;background:'+cls(h.cpu)+'"></i></span><span class="v">'+(h.cpu||0)+'%</span></div>').join('')||'<span class="ach">无数据</span>';
 }
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);const b=document.getElementById('themeBtn');if(b)b.textContent=t==='light'?'☀️ 亮色':'🌙 暗色'}
+function toggleTheme(){const cur=document.documentElement.getAttribute('data-theme')||'dark';const next=cur==='light'?'dark':'light';localStorage.setItem('tp-theme',next);applyTheme(next)}
+applyTheme(localStorage.getItem('tp-theme')||'dark');
 load();setInterval(load,2000);
 </script></body></html>`;
 
