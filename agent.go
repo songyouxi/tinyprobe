@@ -1,5 +1,5 @@
 // tinyprobe agent — standard library only, statically compiled, self-updating.
-// Build: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=v1.0.0" -o probe-linux-amd64 agent.go
+// Build: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=v1.1.0" -o probe-linux-amd64 agent.go
 // Run:   ./probe-linux-amd64 -hub http://HUB:47821 -name web-01 -interval 2
 package main
 
@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-// Version is injected at build time via -ldflags "-X main.Version=v1.0.0".
+// Version is injected at build time via -ldflags "-X main.Version=v1.1.0".
 var Version = "dev"
 
 // ServiceName is used when restarting via systemd after a self-update.
