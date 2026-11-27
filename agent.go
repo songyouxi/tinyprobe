@@ -1,6 +1,6 @@
 // tinyprobe agent — standard library only, statically compiled, self-updating.
 // Build: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X main.Version=v1.0.0" -o probe-linux-amd64 agent.go
-// Run:   ./probe-linux-amd64 -hub http://HUB:8090 -name web-01 -interval 2
+// Run:   ./probe-linux-amd64 -hub http://HUB:47821 -name web-01 -interval 2
 package main
 
 import (
@@ -323,7 +323,7 @@ func restart() {
 }
 
 func main() {
-	hub := flag.String("hub", "http://127.0.0.1:8090", "hub URL")
+	hub := flag.String("hub", "http://127.0.0.1:47821", "hub URL")
 	name := flag.String("name", "", "node name (default hostname)")
 	interval := flag.Int("interval", 2, "report interval seconds")
 	diskPath := flag.String("disk", "/", "disk mount to monitor")
