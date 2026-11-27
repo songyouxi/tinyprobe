@@ -4,9 +4,9 @@
 # 校验 SHA256，注册 systemd 服务并启动。无 systemd 时用 nohup 兜底。
 #
 # 用法（一行安装）：
-#   HUB=http://监控端IP:8090 NAME=web-01 bash install.sh
+#   HUB=http://监控端IP:47821 NAME=web-01 bash install.sh
 # 或带参数：
-#   bash install.sh --hub http://监控端IP:8090 --name web-01 --token SECRET \
+#   bash install.sh --hub http://监控端IP:47821 --name web-01 --token SECRET \
 #     --repo https://raw.githubusercontent.com/OWNER/REPO/main/dist --version v1.0.0
 #
 # 环境变量也可：HUB, NAME, TOKEN, REPO, VERSION, SERVICE, INTERVAL, INSTALL_DIR
@@ -14,7 +14,7 @@
 set -e
 
 # ---------- 默认配置 ----------
-HUB="${HUB:-http://127.0.0.1:8090}"
+HUB="${HUB:-http://127.0.0.1:47821}"
 NAME="${NAME:-$(hostname)}"
 TOKEN="${TOKEN:-}"
 REPO="${REPO:-https://raw.githubusercontent.com/OWNER/REPO/main/dist}"
