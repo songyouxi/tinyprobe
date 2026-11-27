@@ -86,20 +86,36 @@ node hub.js --port 47821 --admin-token mysecret
 - **主机标签页**：实时看 CPU / 内存 / 磁盘 / 网络 / 架构 / 版本。
 - **远程更新标签页**：配置目标版本、下载地址模板、SHA256SUMS 模板，开启 armed，可强制更新单台。
 
-## 三、服务器一行安装（自适配 + 自启动）
+## 三、接入主机（控制台后台自动生成安装命令）
+
+**不用手拼 IP/端口/token。** 打开控制台 `http://控制台IP:47821` → 切到「接入主机」标签 → 填节点名 → 命令自动生成并一键复制。命令里的 `HUB` 就是你**当前访问控制台的真实地址**，`TOKEN`/`VERSION`/`REPO` 也按后台配置自动填好。中控大屏左上角也有「接入命令」快捷入口。
+
+生成出来的命令长这样（地址按你实际访问自动变）：
+
+```bash
+curl -fsSL https://github.com/songyouxi/tinyprobe/raw/main/install.sh \
+| HUB=http://控制台IP:47821 NAME=web-01 TOKEN=mysecret VERSION=v1.0.0 \
+REPO=https://github.com/songyouxi/tinyprobe/releases/download bash
+```
+
+复制到目标服务器执行即可自动与控制端互通。原理：hub 的 `/api/bootstrap` 接口读取请求的 `Host` 头和命令行 `--token`，实时拼出这条命令（见 `hub.js`），所以你从哪个地址进控制台，命令就指向哪个地址。
+
+## 四、服务器一行安装（自适配 + 自启动）
+
+手动安装也可以直接用下面这条（等价于后台生成的）：
 
 ```bash
 HUB=http://控制台IP:47821 NAME=web-01 \
-REPO=https://github.com/OWNER/REPO/releases/download/v1.0.0 \
+REPO=https://github.com/songyouxi/tinyprobe/releases/download/v1.0.0 \
 VERSION=v1.0.0 \
-bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/songyouxi/tinyprobe/main/install.sh)
 ```
 
 脚本会：识别架构 → 下载 `probe-linux-<arch>` → 校验 SHA256 → 装到 `/usr/local/bin/tinyprobe-probe` → 注册 systemd 服务 `tinyprobe` → `enable --now`。控制台主机列表随即出现该节点。
 
 卸载：`bash uninstall.sh tinyprobe`
 
-## 四、远程更新完整流程
+## 五、远程更新完整流程
 
 1. 推新 tag（如 `v1.1.0`），Actions 自动发新 Release（含新二进制 + SHA256SUMS）。
 2. 控制台「远程更新」填：
@@ -116,13 +132,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh)
 
 防抖：同一主机同一目标版本 60 秒内只下发一次，避免重复更新；版本一致则不下发。
 
-## 五、安全
+## 六、安全
 
 - agent 上报可用 `-token SECRET`，hub 启动时 `--token SECRET` 校验。
 - 管理 API 用 `--admin-token`，Web 控制台输入后存在浏览器 sessionStorage。
 - 更新强制 SHA256 校验，不匹配拒绝替换。
 
-## 六、agent 参数
+## 七、agent 参数
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
@@ -133,13 +149,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh)
 | `-token` | 空 | 上报令牌 |
 | `-service` | `tinyprobe` | 自更新后重启的 systemd 单元名 |
 
-## 七、自检状态
+## 八、自检状态
 
 - 已编译 **12/12** 架构，全部 ELF 有效、`CGO_ENABLED=0` 静态链接。
 - 版本号注入已验证（二进制含 `v1.0.0`）。
 - hub 更新指令端到端测试通过：版本对比 → 按架构拼 URL → SHA256 下发 → 60 秒防抖 → 管理令牌鉴权 403 → 当前版本不下发。
 
-## 八、自行编译其它架构
+## 九、自行编译其它架构
 
 ```powershell
 $env:GOROOT='D:\deepseekHarness\tinyprobe\.gotool\go'
