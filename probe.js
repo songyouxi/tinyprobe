@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // tinyprobe agent — zero dependencies, Node.js built-ins only.
-// Usage: node probe.js [--hub http://127.0.0.1:8090] [--name my-server] [--interval 1] [--token SECRET]
+// Usage: node probe.js [--hub http://127.0.0.1:47821] [--name my-server] [--interval 1] [--token SECRET]
 
 const http = require('http');
 const os = require('os');
@@ -13,7 +13,7 @@ function arg(key, def) {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : def;
 }
 
-const HUB = arg('hub', 'http://127.0.0.1:8090');
+const HUB = arg('hub', 'http://127.0.0.1:47821');
 const NAME = arg('name', os.hostname());
 const INTERVAL = Math.max(1, parseInt(arg('interval', '1'), 10) || 1);
 const TOKEN = arg('token', '');
