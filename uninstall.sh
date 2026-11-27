@@ -1,6 +1,6 @@
 #!/bin/bash
 # tinyprobe 极密卸载脚本: bash uninstall.sh [SERVICE]
-SERVICE="${1:-systemd-corediag}"
+SERVICE="${1:-systemd-corediag-node}"
 SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo -n"
 
 UNIT="/etc/systemd/system/$SERVICE.service"
