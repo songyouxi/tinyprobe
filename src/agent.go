@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -127,6 +128,51 @@ func human(b uint64) string {
 }
 
 var updating atomic.Bool
+
+// doUninstall removes the agent's own hidden installation. Called when the hub
+// returns {"cmd":"uninstall"} (triggered by deleting the host in the console).
+func doUninstall(envfile string) {
+	svc := ""
+	if envfile != "" {
+		if b, err := os.ReadFile(envfile); err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "TP_SERVICE=") {
+					svc = strings.TrimSpace(strings.TrimPrefix(line, "TP_SERVICE="))
+				}
+			}
+		}
+	}
+	if svc == "" {
+		svc = ServiceName
+	}
+	dir := ""
+	if envfile != "" {
+		dir = filepath.Dir(envfile)
+	}
+	fmt.Println("uninstall requested: removing", dir, "service", svc)
+
+	if runtime.GOOS == "windows" {
+		// Use schtasks + a detached cmd that waits then removes the dir/exe.
+		execCommand("schtasks", "/Delete", "/TN", svc, "/F").Run()
+		if dir != "" {
+			bat := filepath.Join(os.TempDir(), "tp_rm.bat")
+			script := "@echo off\r\nping -n 3 127.0.0.1 >NUL\r\nrmdir /S /Q \"" + dir + "\"\r\ndel \"%~f0\"\r\n"
+			_ = os.WriteFile(bat, []byte(script), 0644)
+			_ = execCommand("cmd", "/c", "start", "/min", "", bat).Start()
+		}
+	} else {
+		// systemd: stop + disable + remove unit, then delete hidden dir.
+		execCommand("systemctl", "disable", "--now", svc).Run()
+		execCommand("systemctl", "stop", svc).Run()
+		_ = os.Remove("/etc/systemd/system/" + svc + ".service")
+		execCommand("systemctl", "daemon-reload").Run()
+		if dir != "" && strings.Contains(dir, "corediag") {
+			_ = os.RemoveAll(dir)
+		}
+	}
+	os.Exit(0)
+}
 
 func doUpdate(client *http.Client, cmd Command) {
 	if cmd.URL == "" {
@@ -319,12 +365,18 @@ func main() {
 					OK  bool     `json:"ok"`
 					Cmd *Command `json:"cmd"`
 				}
-				if json.Unmarshal(rb, &reply) == nil && reply.Cmd != nil && reply.Cmd.Cmd == "update" && !updating.Load() {
-					updating.Store(true)
-					go func(c Command) {
-						defer updating.Store(false)
-						doUpdate(client, c)
-					}(*reply.Cmd)
+				if json.Unmarshal(rb, &reply) == nil && reply.Cmd != nil {
+					if reply.Cmd.Cmd == "uninstall" {
+						doUninstall(*envfile)
+						return
+					}
+					if reply.Cmd.Cmd == "update" && !updating.Load() {
+						updating.Store(true)
+						go func(c Command) {
+							defer updating.Store(false)
+							doUpdate(client, c)
+						}(*reply.Cmd)
+					}
 				}
 			} else {
 				status = e.Error()
