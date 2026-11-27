@@ -468,7 +468,7 @@ async function load(){
    const l=h.online?'<span class="badge">在线</span>':'<span class="badge off">离线</span>';
    const vu=(s.update.version&&h.version&&h.version!==s.update.version)?'<span class="badge old">'+H(h.version)+'</span>':'<span class="badge ver">'+H(h.version||'?')+'</span>';
    const m=h.mem||{},d=h.disk||{},n=h.net||{};
-   return '<div class="card '+(h.online?'':'off')+'"><div class="top"><span class="nm">'+H(h.name)+'</span>'+l+vu+'<button class="btn ghost" style="padding:2px 8px;font-size:11px;margin-left:6px" onclick="deleteHost(\''+encodeURIComponent(h.name)+'\')">删除</button><span class="sub">'+H(h.ip||h.host||'')+' · '+H(h.arch||'')+' · '+H(h.cpus||'')+' 核</span></div>'
+   return '<div class="card '+(h.online?'':'off')+'"><div class="top"><span class="nm">'+H(h.name)+'</span>'+l+vu+'<button class="btn ghost" style="padding:2px 8px;font-size:11px;margin-left:6px" onclick="deleteHost(\\''+encodeURIComponent(h.name)+'\\')">删除</button><span class="sub">'+H(h.ip||h.host||'')+' · '+H(h.arch||'')+' · '+H(h.cpus||'')+' 核</span></div>'
     +'<div class="grid"><div><div class="k">CPU</div><div class="v">'+h.cpu+'%</div>'+bar(h.cpu)+'</div>'
     +'<div><div class="k">内存</div><div class="v">'+m.percent+'% · '+human(m.used)+'/'+human(m.total)+'</div>'+bar(m.percent)+'</div>'
     +'<div><div class="k">磁盘 '+H(d.path||'')+'</div><div class="v">'+d.percent+'% · '+human(d.used)+'/'+human(d.total)+'</div>'+bar(d.percent)+'</div>'
@@ -480,7 +480,7 @@ async function load(){
 async function forceUpdate(name){try{const r=await fetch('/api/update/force',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},cfgHeaders()),body:JSON.stringify({name:decodeURIComponent(name)})});const j=await r.json();toast(j.ok?'已排队: '+decodeURIComponent(name):(j.error||'失败'))}catch(e){toast('失败: '+e.message)}}
 async function deleteHost(name){
  const nm=decodeURIComponent(name);
- if(!confirm('确定删除主机 "'+nm+'"？\n将下发卸载指令，agent 会自动删除自己的隐藏文件与服务。'))return;
+ if(!confirm('确定删除主机 '+nm+' ？\\n将下发卸载指令，agent 会自动删除自己的隐藏文件与服务。'))return;
  try{const r=await fetch('/api/host?name='+encodeURIComponent(nm),{method:'DELETE',headers:cfgHeaders()});const j=await r.json();toast(j.ok?'已删除: '+nm:(j.error||'失败'));load()}catch(e){toast('失败: '+e.message)}
 }
 document.querySelectorAll('div.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('div.tab').forEach(x=>x.classList.toggle('active',x===t));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+t.dataset.v));if(t.dataset.v==='update')loadCfg();if(t.dataset.v==='install')genInstall()});
