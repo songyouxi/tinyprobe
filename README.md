@@ -64,16 +64,16 @@ git commit -m "tinyprobe: full-arch self-updating probe"
 git remote add origin https://github.com/OWNER/REPO.git
 git push -u origin main
 
-# 发布第一个版本（触发 Actions 自动编译全部架构并创建 Release）
-git tag v1.0.0
-git push origin v1.0.0
+# 发布版本（触发 Actions 自动编译全部架构并创建 Release）
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 推送 `v*` 标签后，`.github/workflows/build-release.yml` 会自动编译 12 个架构、生成 SHA256SUMS、发布到 GitHub Release。Release 里的下载地址形如：
 
 ```
-https://github.com/OWNER/REPO/releases/download/v1.0.0/probe-linux-amd64
-https://github.com/OWNER/REPO/releases/download/v1.0.0/SHA256SUMS
+https://github.com/OWNER/REPO/releases/download/v1.1.0/probe-linux-amd64
+https://github.com/OWNER/REPO/releases/download/v1.1.0/SHA256SUMS
 ```
 
 ## 二、启动控制台
@@ -94,7 +94,7 @@ node hub.js --port 47821 --admin-token mysecret
 
 ```bash
 curl -fsSL https://github.com/songyouxi/tinyprobe/raw/main/install.sh \
-| HUB=http://控制台IP:47821 NAME=web-01 TOKEN=mysecret VERSION=v1.0.0 \
+| HUB=http://控制台IP:47821 NAME=web-01 TOKEN=mysecret VERSION=v1.1.0 \
 REPO=https://github.com/songyouxi/tinyprobe/releases/download bash
 ```
 
@@ -106,8 +106,8 @@ REPO=https://github.com/songyouxi/tinyprobe/releases/download bash
 
 ```bash
 HUB=http://控制台IP:47821 NAME=web-01 \
-REPO=https://github.com/songyouxi/tinyprobe/releases/download/v1.0.0 \
-VERSION=v1.0.0 \
+REPO=https://github.com/songyouxi/tinyprobe/releases/download/v1.1.0 \
+VERSION=v1.1.0 \
 bash <(curl -fsSL https://raw.githubusercontent.com/songyouxi/tinyprobe/main/install.sh)
 ```
 
@@ -151,14 +151,16 @@ bash <(curl -fsSL https://raw.githubusercontent.com/songyouxi/tinyprobe/main/ins
 
 ## 八、自检状态
 
+- 当前版本：**v1.1.0**（版本演进详见 [CHANGELOG.md](CHANGELOG.md)）。
 - 已编译 **12/12** 架构，全部 ELF 有效、`CGO_ENABLED=0` 静态链接。
-- 版本号注入已验证（二进制含 `v1.0.0`）。
+- 版本号注入已验证（二进制含 `v1.1.0`）。
 - hub 更新指令端到端测试通过：版本对比 → 按架构拼 URL → SHA256 下发 → 60 秒防抖 → 管理令牌鉴权 403 → 当前版本不下发。
+- 落盘节流测试通过：200 次上报 / 5 秒窗口仅写盘 2 次，状态文件约 2.4 KB。
 
 ## 九、自行编译其它架构
 
 ```powershell
 $env:GOROOT='D:\deepseekHarness\tinyprobe\.gotool\go'
 $env:CGO_ENABLED='0'; $env:GO111MODULE='off'; $env:GOOS='linux'; $env:GOARCH='arm'
-& 'D:\deepseekHarness\tinyprobe\.gotool\go\bin\go.exe' build -trimpath -ldflags="-s -w -X main.Version=v1.0.0" -o dist\probe-linux-arm agent.go
+& 'D:\deepseekHarness\tinyprobe\.gotool\go\bin\go.exe' build -trimpath -ldflags="-s -w -X main.Version=v1.1.0" -o dist\probe-linux-arm agent.go
 ```
