@@ -248,17 +248,18 @@ function handleApi(req, res, u) {
     const proto = fwdProto ? fwdProto.split(',')[0] : 'http';
     const hubBase = proto + '://' + hostHdr;
     const repo = (update.repoBase || 'https://github.com/songyouxi/tinyprobe/releases/download').replace(/\/$/, '');
-    const ver = (update.version || 'v1.2.0');
+    const ver = (update.version || 'v1.2.1');
     const token = TOKEN || '';
+    const tokenB64 = token ? Buffer.from(token, 'utf8').toString('base64') : '';
     const rawBase = repo.replace(/\/releases\/download.*$/, '') + '/raw/main';
     let command, installUrl;
     if (os === 'windows') {
-      // PowerShell one-liner: set env vars then irm|iex.
+      // PowerShell: token via base64 env (no plaintext in command line).
       installUrl = rawBase + '/install.ps1';
       const setEnv = [
         '$env:HUB=' + JSON.stringify(hubBase),
         '$env:NAME=' + JSON.stringify(name),
-        token ? '$env:TOKEN=' + JSON.stringify(token) : '',
+        tokenB64 ? '$env:TOKEN_B64=' + JSON.stringify(tokenB64) : '',
         '$env:VERSION=' + JSON.stringify(ver),
         '$env:REPO=' + JSON.stringify(repo),
       ].filter(Boolean).join('; ');
@@ -268,7 +269,7 @@ function handleApi(req, res, u) {
       const env = [
         'HUB=' + hubBase,
         'NAME=' + name,
-        token ? 'TOKEN=' + token : '',
+        tokenB64 ? 'TOKEN_B64=' + tokenB64 : '',
         'VERSION=' + ver,
         'REPO=' + repo,
       ].filter(Boolean).join(' ');
@@ -276,7 +277,7 @@ function handleApi(req, res, u) {
     }
     return json(res, 200, {
       command, hubBase, name, os, version: ver, repo,
-      token, hasToken: !!token, installUrl,
+      hasToken: !!token, installUrl,
     });
   }
 
