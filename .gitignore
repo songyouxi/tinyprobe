@@ -1,0 +1,5 @@
+﻿.gotool/
+.gitportable/
+hub-state.json
+*.ps1
+_e2e.js

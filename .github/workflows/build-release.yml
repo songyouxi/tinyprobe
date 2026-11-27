@@ -1,0 +1,52 @@
+name: build-release
+
+# 推送 v* 标签时自动编译全架构静态二进制并发布 Release。
+# 用法：git tag v1.1.0 && git push origin v1.1.0
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build all architectures
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -e
+          mkdir -p dist
+          ARCHS="amd64 arm64 386 arm mips mipsle mips64 mips64le ppc64le s390x riscv64 loong64"
+          for arch in $ARCHS; do
+            echo "building linux/$arch..."
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch GOARM=7 \
+              go build -trimpath -ldflags="-s -w -X main.Version=$VERSION" \
+              -o "dist/probe-linux-$arch" agent.go
+          done
+          cd dist
+          sha256sum probe-linux-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/probe-linux-*
+            dist/SHA256SUMS
+            install.sh
+            uninstall.sh
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
