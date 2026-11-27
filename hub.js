@@ -21,11 +21,25 @@ function arg(key, def) {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : def;
 }
 
-const PORT = parseInt(arg('port', '47821'), 10) || 47821;
-const TOKEN = arg('token', '');
-const ADMIN_TOKEN = arg('admin-token', TOKEN || 'admin');
+// Load secrets from a hidden root-only env file so `ps` never shows plaintext.
+const ENV_FILE = arg('envfile', '');
+const env = {};
+if (ENV_FILE) {
+  try {
+    for (const line of fs.readFileSync(ENV_FILE, 'utf8').split('\n')) {
+      const s = line.trim();
+      if (!s || s.startsWith('#')) continue;
+      const i = s.indexOf('=');
+      if (i > 0) env[s.slice(0, i).trim()] = s.slice(i + 1).trim();
+    }
+  } catch (_) {}
+}
+
+const PORT = parseInt(arg('port', env.TP_PORT || '47821'), 10) || 47821;
+const TOKEN = arg('token', env.TP_TOKEN || '');
+const ADMIN_TOKEN = arg('admin-token', TOKEN || env.TP_ADMIN_TOKEN || 'admin');
 const KEEP = Math.max(10, parseInt(arg('keep', '180'), 10) || 180);
-const STATE_FILE = arg('state', path.join(__dirname, 'hub-state.json'));
+const STATE_FILE = arg('state', env.TP_STATE || path.join(__dirname, 'hub-state.json'));
 
 /** @type {Map<string, {latest:any, history:any[], pending:any|null}>} */
 const hosts = new Map();
