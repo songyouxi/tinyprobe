@@ -227,28 +227,41 @@ function handleApi(req, res, u) {
   // gets baked into the agent — no manual IP/port/token stitching.
   if (u.pathname === '/api/bootstrap') {
     const name = (u.searchParams.get('name') || '').trim() || 'my-server';
+    const os = (u.searchParams.get('os') || 'linux').toLowerCase() === 'windows' ? 'windows' : 'linux';
     const hostHdr = req.headers['host'] || ('127.0.0.1:' + PORT);
     // Derive the hub base URL from the Host header the browser actually used.
-    // Trust X-Forwarded-* when behind a reverse proxy.
     const fwdProto = req.headers['x-forwarded-proto'];
-    const proto = (fwdProto ? fwdProto.split(',')[0] : (hostHdr.includes('47821') || hostHdr.startsWith('localhost') ? 'http' : 'http'));
+    const proto = fwdProto ? fwdProto.split(',')[0] : 'http';
     const hubBase = proto + '://' + hostHdr;
-    // Repo/version: prefer configured values, fall back to sensible defaults.
     const repo = (update.repoBase || 'https://github.com/songyouxi/tinyprobe/releases/download').replace(/\/$/, '');
-    const ver = (update.version || 'v1.1.0');
+    const ver = (update.version || 'v1.2.0');
     const token = TOKEN || '';
-    // Build the one-line install command (env vars before `bash`).
-    const env = [
-      'HUB=' + hubBase,
-      'NAME=' + name,
-      token ? 'TOKEN=' + token : '',
-      'VERSION=' + ver,
-      'REPO=' + repo,
-    ].filter(Boolean).join(' ');
-    const installUrl = repo.replace(/\/releases\/download.*$/, '') + '/raw/main/install.sh';
-    const command = 'curl -fsSL ' + installUrl + ' | ' + env + ' bash';
+    const rawBase = repo.replace(/\/releases\/download.*$/, '') + '/raw/main';
+    let command, installUrl;
+    if (os === 'windows') {
+      // PowerShell one-liner: set env vars then irm|iex.
+      installUrl = rawBase + '/install.ps1';
+      const setEnv = [
+        '$env:HUB=' + JSON.stringify(hubBase),
+        '$env:NAME=' + JSON.stringify(name),
+        token ? '$env:TOKEN=' + JSON.stringify(token) : '',
+        '$env:VERSION=' + JSON.stringify(ver),
+        '$env:REPO=' + JSON.stringify(repo),
+      ].filter(Boolean).join('; ');
+      command = setEnv + '; irm ' + installUrl + ' | iex';
+    } else {
+      installUrl = rawBase + '/install.sh';
+      const env = [
+        'HUB=' + hubBase,
+        'NAME=' + name,
+        token ? 'TOKEN=' + token : '',
+        'VERSION=' + ver,
+        'REPO=' + repo,
+      ].filter(Boolean).join(' ');
+      command = 'curl -fsSL ' + installUrl + ' | ' + env + ' bash';
+    }
     return json(res, 200, {
-      command, hubBase, name, version: ver, repo,
+      command, hubBase, name, os, version: ver, repo,
       token, hasToken: !!token, installUrl,
     });
   }
@@ -336,6 +349,7 @@ code{background:#21262d;padding:1px 5px;border-radius:4px;font-size:12px}
   <h3 style="margin-top:0">一键接入新主机</h3>
   <div class="hint">控制台已根据你当前访问的地址自动填好 <code>HUB</code> / <code>TOKEN</code> / <code>VERSION</code> / <code>REPO</code>。只需填节点名，复制命令到目标服务器执行即可自动互通。</div>
   <div class="field" style="margin-top:14px"><label>节点名 NAME（每台唯一）</label><input type="text" id="i-name" placeholder="web-01"></div>
+   <div class="field"><label>目标系统</label><div class="row"><label class="tag"><input type="radio" name="i-os" value="linux" checked onchange="genInstall()"> Linux</label><label class="tag"><input type="radio" name="i-os" value="windows" onchange="genInstall()"> Windows</label></div></div>
   <div class="field"><label>生成的安装命令（已按本控制台地址拼好）</label>
    <div style="display:flex;gap:8px;align-items:flex-start">
     <textarea id="i-cmd" readonly style="flex:1;min-height:96px;background:#0d1117;border:1px solid var(--bd);border-radius:6px;color:var(--cyan);padding:10px;font:12px/1.6 monospace;resize:vertical"></textarea>
@@ -347,7 +361,7 @@ code{background:#21262d;padding:1px 5px;border-radius:4px;font-size:12px}
   </div>
   <div id="i-info" class="hint" style="margin-top:12px"></div>
   <div class="hint" style="margin-top:10px">
-   <b>前提条件：</b>GitHub Release <code>v1.1.0</code> 已发布（含 12 个架构二进制 + SHA256SUMS）。若还没发，先按 README 建 Release，否则脚本会下载 404。
+   <b>前提条件：</b>GitHub Release <code>v1.2.0</code> 已发布（含 12 个架构二进制 + SHA256SUMS）。若还没发，先按 README 建 Release，否则脚本会下载 404。
   </div>
  </div>
 </div>
@@ -403,11 +417,13 @@ async function forceUpdate(name){try{const r=await fetch('/api/update/force',{me
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+t.dataset.v));if(t.dataset.v==='update')loadCfg();if(t.dataset.v==='install')genInstall()});
 async function genInstall(){
  const name=document.getElementById('i-name').value.trim()||'my-server';
+  const osEl=document.querySelector('input[name="i-os"]:checked');
+  const os=osEl?osEl.value:'linux';
  try{
-  const r=await fetch('/api/bootstrap?name='+encodeURIComponent(name));
+  const r=await fetch('/api/bootstrap?name='+encodeURIComponent(name)+'&os='+os);
   const j=await r.json();
   document.getElementById('i-cmd').value=j.command||'';
-  document.getElementById('i-info').innerHTML='控制端地址 <b>'+H(j.hubBase)+'</b> · 版本 <b>'+H(j.version)+'</b> · 令牌 <b>'+(j.hasToken?'已自动填入':'未启用')+'</b><br>命令里的 <code>HUB</code> 就是你访问本控制台的地址，无需再手改。';
+  document.getElementById('i-info').innerHTML='目标系统 <b>'+H(os)+'</b> · 控制端 <b>'+H(j.hubBase)+'</b> · 版本 <b>'+H(j.version)+'</b> · 令牌 <b>'+(j.hasToken?'已自动填入':'未启用')+'</b><br>命令里的 <code>HUB</code> 就是你访问本控制台的地址，无需再手改。';
  }catch(e){document.getElementById('i-info').textContent='生成失败: '+e.message}
 }
 document.getElementById('btn-gen').onclick=genInstall;
