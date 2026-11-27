@@ -35,7 +35,7 @@ tinyprobe/
 hub 内置一个全屏监控大屏（深色科技风、1920×1080 自适应）：
 
 ```
-http://控制台IP:8090/screen
+http://控制台IP:47821/screen
 ```
 
 包含：主机总数 / 在线数 / 平均 CPU / 平均内存 四个 KPI、在线率环形图、集群资源条、架构分布、CPU/内存实时趋势曲线、实时告警面板、CPU 负载 TOP 榜。按 `F11` 全屏即可投屏。点大屏左上角「返回 /」回到管理控制台。
@@ -79,17 +79,17 @@ https://github.com/OWNER/REPO/releases/download/v1.0.0/SHA256SUMS
 ## 二、启动控制台
 
 ```bash
-node hub.js --port 8090 --admin-token mysecret
+node hub.js --port 47821 --admin-token mysecret
 ```
 
-打开 `http://控制台IP:8090`：
+打开 `http://控制台IP:47821`：
 - **主机标签页**：实时看 CPU / 内存 / 磁盘 / 网络 / 架构 / 版本。
 - **远程更新标签页**：配置目标版本、下载地址模板、SHA256SUMS 模板，开启 armed，可强制更新单台。
 
 ## 三、服务器一行安装（自适配 + 自启动）
 
 ```bash
-HUB=http://控制台IP:8090 NAME=web-01 \
+HUB=http://控制台IP:47821 NAME=web-01 \
 REPO=https://github.com/OWNER/REPO/releases/download/v1.0.0 \
 VERSION=v1.0.0 \
 bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh)
@@ -126,7 +126,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh)
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `-hub` | `http://127.0.0.1:8090` | 控制台地址 |
+| `-hub` | `http://127.0.0.1:47821` | 控制台地址 |
 | `-name` | 主机名 | 节点显示名 |
 | `-interval` | `2` | 上报间隔秒 |
 | `-disk` | `/` | 监控挂载点 |
