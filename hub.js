@@ -195,14 +195,30 @@ function handleReport(req, res) {
     try { d = JSON.parse(body); } catch (_) { return json(res, 400, { error: 'bad json' }); }
     if (!d || !d.name) return json(res, 400, { error: 'missing name' });
     d.time = Date.now();
+    // Record the real source IP from the TCP connection (or proxy header).
+    // This is the agent's actual public IP, independent of what it self-reports.
+    const xff = req.headers['x-forwarded-for'];
+    d.ip = (xff ? xff.split(',')[0].trim() : (req.socket.remoteAddress || ''))
+      .replace(/^::ffff:/, '');
     let h = hosts.get(d.name);
-    if (!h) { h = { latest: null, history: [], pending: null }; hosts.set(d.name, h); }
+    if (!h) { h = { latest: null, history: [], pending: null, uninstall: false }; hosts.set(d.name, h); }
     h.latest = d;
     h.history.push(d);
     if (h.history.length > KEEP) h.history.splice(0, h.history.length - KEEP);
     saveState();
-    const cmd = commandFor(h);
-    json(res, 200, { ok: true, cmd: cmd || undefined });
+    // One-shot uninstall command takes priority over update.
+    const resp = { ok: true };
+    if (h.uninstall) {
+      h.uninstall = false;
+      resp.cmd = { cmd: 'uninstall' };
+      // Drop the host record right after queueing the uninstall command.
+      hosts.delete(d.name);
+      saveState(true);
+    } else {
+      const cmd = commandFor(h);
+      if (cmd) resp.cmd = cmd;
+    }
+    json(res, 200, resp);
   });
 }
 
@@ -210,11 +226,11 @@ function snapshot() {
   const now = Date.now();
   const list = [];
   for (const [name, h] of hosts) {
-    if (!h.latest) continue;
+    if (!h.latest || h.uninstall) continue;
     const l = h.latest;
     list.push({
       name, online: now - l.time < 15000, time: l.time,
-      host: l.host, version: l.version || '', arch: l.arch, platform: l.platform,
+      host: l.host, ip: l.ip || '', version: l.version || '', arch: l.arch, platform: l.platform,
       cpu: l.cpu, mem: l.mem, disk: l.disk, net: l.net, cpus: l.cpus,
       load: l.load, uptime: l.uptime,
       history: h.history.map(x => ({ t: x.time, cpu: x.cpu, m: x.mem && x.mem.percent })),
@@ -235,6 +251,21 @@ function snapshot() {
 // ---------- API ----------
 function handleApi(req, res, u) {
   if (u.pathname === '/api/data') return json(res, 200, snapshot());
+
+  // Delete a host: mark for self-uninstall (agent removes its own hidden files
+  // and service on next report) and drop the record immediately.
+  if (u.pathname === '/api/host' && req.method === 'DELETE') {
+    if (!isAdmin(req)) return json(res, 403, { error: 'admin token required' });
+    const name = (u.searchParams.get('name') || '').trim();
+    if (!name) return json(res, 400, { error: 'missing name' });
+    const h = hosts.get(name);
+    if (!h) return json(res, 404, { error: 'host not found' });
+    // Keep a tombstone record with uninstall flag so the next report delivers
+    // the uninstall command; it is hidden from the UI and pruned afterwards.
+    h.uninstall = true;
+    saveState(true);
+    return json(res, 200, { ok: true, deleted: name, uninstallQueued: true });
+  }
 
   // Auto-generate the agent install command from the ACTUAL request host/port.
   // So whatever address the operator used to reach the console is exactly what
@@ -407,7 +438,7 @@ code{background:#21262d;padding:1px 5px;border-radius:4px;font-size:12px}
  </div>
  <div class="panel" style="margin-top:14px">
   <h3 style="margin-top:0">主机版本 / 强制更新</h3>
-  <table><thead><tr><th>主机</th><th>架构</th><th>当前版本</th><th>操作</th></tr></thead><tbody id="up-body"></tbody></table>
+  <table><thead><tr><th>主机</th><th>IP</th><th>架构</th><th>当前版本</th><th>操作</th></tr></thead><tbody id="up-body"></tbody></table>
  </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -429,16 +460,21 @@ async function load(){
    const l=h.online?'<span class="badge">在线</span>':'<span class="badge off">离线</span>';
    const vu=(s.update.version&&h.version&&h.version!==s.update.version)?'<span class="badge old">'+H(h.version)+'</span>':'<span class="badge ver">'+H(h.version||'?')+'</span>';
    const m=h.mem||{},d=h.disk||{},n=h.net||{};
-   return '<div class="card '+(h.online?'':'off')+'"><div class="top"><span class="nm">'+H(h.name)+'</span>'+l+vu+'<span class="sub">'+H(h.arch||'')+' · '+H(h.cpus||'')+' 核</span></div>'
+   return '<div class="card '+(h.online?'':'off')+'"><div class="top"><span class="nm">'+H(h.name)+'</span>'+l+vu+'<button class="btn ghost" style="padding:2px 8px;font-size:11px;margin-left:6px" onclick="deleteHost(\''+encodeURIComponent(h.name)+'\')">删除</button><span class="sub">'+H(h.ip||h.host||'')+' · '+H(h.arch||'')+' · '+H(h.cpus||'')+' 核</span></div>'
     +'<div class="grid"><div><div class="k">CPU</div><div class="v">'+h.cpu+'%</div>'+bar(h.cpu)+'</div>'
     +'<div><div class="k">内存</div><div class="v">'+m.percent+'% · '+human(m.used)+'/'+human(m.total)+'</div>'+bar(m.percent)+'</div>'
     +'<div><div class="k">磁盘 '+H(d.path||'')+'</div><div class="v">'+d.percent+'% · '+human(d.used)+'/'+human(d.total)+'</div>'+bar(d.percent)+'</div>'
     +'<div><div class="k">网络</div><div class="v">↓'+human(n.rx)+'/s ↑'+human(n.tx)+'/s</div><div class="k">运行 '+Math.floor((h.uptime||0)/86400)+'天'+Math.floor((h.uptime||0)%86400/3600)+'时</div></div></div>'+spark(h.history)+'</div>'
   }).join('');
-  document.getElementById('up-body').innerHTML=s.hosts.map(h=>'<tr><td>'+H(h.name)+'</td><td>'+H(h.arch)+'</td><td>'+H(h.version||'?')+'</td><td><button class="btn ghost" onclick="forceUpdate(\\''+encodeURIComponent(h.name)+'\\')">强制更新</button></td></tr>').join('');
+  document.getElementById('up-body').innerHTML=s.hosts.map(h=>'<tr><td>'+H(h.name)+'</td><td>'+H(h.ip||'')+'</td><td>'+H(h.arch)+'</td><td>'+H(h.version||'?')+'</td><td><button class="btn ghost" onclick="forceUpdate(\\''+encodeURIComponent(h.name)+'\\')">强制更新</button></td></tr>').join('');
  }catch(e){document.getElementById('meta').textContent='连接失败: '+e.message}
 }
 async function forceUpdate(name){try{const r=await fetch('/api/update/force',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},cfgHeaders()),body:JSON.stringify({name:decodeURIComponent(name)})});const j=await r.json();toast(j.ok?'已排队: '+decodeURIComponent(name):(j.error||'失败'))}catch(e){toast('失败: '+e.message)}}
+async function deleteHost(name){
+ const nm=decodeURIComponent(name);
+ if(!confirm('确定删除主机 "'+nm+'"？\n将下发卸载指令，agent 会自动删除自己的隐藏文件与服务。'))return;
+ try{const r=await fetch('/api/host?name='+encodeURIComponent(nm),{method:'DELETE',headers:cfgHeaders()});const j=await r.json();toast(j.ok?'已删除: '+nm:(j.error||'失败'));load()}catch(e){toast('失败: '+e.message)}
+}
 document.querySelectorAll('div.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('div.tab').forEach(x=>x.classList.toggle('active',x===t));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+t.dataset.v));if(t.dataset.v==='update')loadCfg();if(t.dataset.v==='install')genInstall()});
 async function genInstall(){
  const name=document.getElementById('i-name').value.trim()||'my-server';
