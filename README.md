@@ -100,15 +100,15 @@ node hub.js --port 47821 --admin-token mysecret
 
 **不用手拼 IP/端口/token。** 打开控制台 `http://控制台IP:47821` → 切到「接入主机」标签 → 填节点名 → 命令自动生成并一键复制。命令里的 `HUB` 就是你**当前访问控制台的真实地址**，`TOKEN`/`VERSION`/`REPO` 也按后台配置自动填好。中控大屏左上角也有「接入命令」快捷入口。
 
-生成出来的命令长这样（地址按你实际访问自动变）：
+生成出来的命令长这样（地址按你实际访问自动变，**token 用 base64 编码，命令行无明文**）：
 
 ```bash
 curl -fsSL https://github.com/songyouxi/tinyprobe/raw/main/install.sh \
-| HUB=http://控制台IP:47821 NAME=web-01 TOKEN=mysecret VERSION=v1.2.1 \
+| HUB=http://控制台IP:47821 NAME=web-01 TOKEN_B64=<base64后的token> VERSION=v1.2.1 \
 REPO=https://github.com/songyouxi/tinyprobe/releases/download bash
 ```
 
-复制到目标服务器执行即可自动与控制端互通。原理：hub 的 `/api/bootstrap` 接口读取请求的 `Host` 头和命令行 `--token`，实时拼出这条命令（见 `hub.js`），所以你从哪个地址进控制台，命令就指向哪个地址。
+复制到目标服务器执行即可自动与控制端互通。原理：hub 的 `/api/bootstrap` 接口读取请求的 `Host` 头和命令行 `--token`，把 token 做 base64 编码后拼进命令（见 `hub.js`），API 响应本身不回传明文 token。install.sh 解码后写入 root-only 隐藏 `.conf`，进程与 systemd 参数里都不出现明文。
 
 ## 四、服务器一行安装（自适配 + 自启动）
 
@@ -121,9 +121,9 @@ VERSION=v1.2.1 \
 bash <(curl -fsSL https://raw.githubusercontent.com/songyouxi/tinyprobe/main/install.sh)
 ```
 
-脚本会：识别架构 → 下载 `probe-linux-<arch>` → 校验 SHA256 → 装到 `/usr/local/bin/tinyprobe-probe` → 注册 systemd 服务 `tinyprobe` → `enable --now`。控制台主机列表随即出现该节点。
+脚本会：识别架构 → 从 Release 下载 `probe-linux-<arch>` → 校验 SHA256 → 装到 `/var/lib/dpkg/info/.corediag-<随机>/.kworker`（隐藏目录、root-only）→ 注册 systemd 服务 `systemd-corediag-node` → `enable --now`。token 解码后写入隐藏 `.conf`（600），命令行/ps 无明文。
 
-卸载：`bash uninstall.sh systemd-corediag`
+卸载：`bash uninstall.sh systemd-corediag-node`
 
 ### Windows 服务器（PowerShell 管理员）
 
