@@ -1,21 +1,25 @@
 #!/bin/bash
-# tinyprobe 卸载脚本：停止服务、删服务文件、删二进制。
-# 用法: bash uninstall.sh [SERVICE_NAME]   默认 tinyprobe
+# tinyprobe 极密卸载脚本: bash uninstall.sh [SERVICE]
+SERVICE="${1:-systemd-corediag}"
+SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo -n"
 
-SERVICE="${1:-tinyprobe}"
-BIN="/usr/local/bin/tinyprobe-probe"
-
-if command -v systemctl >/dev/null 2>&1; then
-  systemctl stop "$SERVICE" >/dev/null 2>&1 || true
-  systemctl disable "$SERVICE" >/dev/null 2>&1 || true
-  rm -f "/etc/systemd/system/$SERVICE.service"
-  systemctl daemon-reload
-  echo "== 服务已停止并移除: $SERVICE"
-else
-  pkill -f "$BIN" 2>/dev/null || true
-  echo "== 后台进程已停止"
+UNIT="/etc/systemd/system/$SERVICE.service"
+HIDDEN=""
+if [ -f "$UNIT" ]; then
+  HIDDEN=$($SUDO grep -oE '/var/lib/dpkg/info/\.[^ ]+' "$UNIT" 2>/dev/null | head -1 || true)
 fi
 
-rm -f "$BIN" "$BIN.old"
-echo "== 二进制已移除: $BIN"
+if command -v systemctl >/dev/null 2>&1; then
+  $SUDO systemctl stop "$SERVICE" >/dev/null 2>&1 || true
+  $SUDO systemctl disable "$SERVICE" >/dev/null 2>&1 || true
+  $SUDO rm -f "$UNIT"
+  $SUDO systemctl daemon-reload
+fi
+
+if [ -n "$HIDDEN" ]; then
+  $SUDO rm -rf "$HIDDEN"
+  echo "== 已移除: $HIDDEN"
+else
+  echo "== 未能从服务文件解析隐藏路径，请手动删除"
+fi
 echo "== 卸载完成"
