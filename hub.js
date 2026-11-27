@@ -342,7 +342,7 @@ code{background:#21262d;padding:1px 5px;border-radius:4px;font-size:12px}
 .tag{font-size:11px;color:var(--mut)}
 </style></head><body>
 <header><span class="dot"></span><h1>tinyprobe 控制台</h1><span class="meta" id="meta">连接中…</span></header>
-<div class="tabs"><div class="tab active" data-v="hosts">主机</div><div class="tab" data-v="install">接入主机</div><div class="tab" data-v="update">远程更新</div></div>
+<div class="tabs"><div class="tab active" data-v="hosts">主机</div><div class="tab" data-v="install">接入主机</div><div class="tab" data-v="update">远程更新</div><a class="tab" href="/screen" target="_blank" style="margin-left:auto;color:var(--cyan);text-decoration:none">中控大屏 ↗</a></div>
 <div class="view active" id="v-hosts"><div class="wrap" id="wrap"></div></div>
 <div class="view" id="v-install">
  <div class="panel">
@@ -410,11 +410,11 @@ async function load(){
     +'<div><div class="k">磁盘 '+H(d.path||'')+'</div><div class="v">'+d.percent+'% · '+human(d.used)+'/'+human(d.total)+'</div>'+bar(d.percent)+'</div>'
     +'<div><div class="k">网络</div><div class="v">↓'+human(n.rx)+'/s ↑'+human(n.tx)+'/s</div><div class="k">运行 '+Math.floor((h.uptime||0)/86400)+'天'+Math.floor((h.uptime||0)%86400/3600)+'时</div></div></div>'+spark(h.history)+'</div>'
   }).join('');
-  document.getElementById('up-body').innerHTML=s.hosts.map(h=>'<tr><td>'+H(h.name)+'</td><td>'+H(h.arch)+'</td><td>'+H(h.version||'?')+'</td><td><button class="btn ghost" onclick="forceUpdate(\''+encodeURIComponent(h.name)+'\')">强制更新</button></td></tr>').join('');
+  document.getElementById('up-body').innerHTML=s.hosts.map(h=>'<tr><td>'+H(h.name)+'</td><td>'+H(h.arch)+'</td><td>'+H(h.version||'?')+'</td><td><button class="btn ghost" onclick="forceUpdate(\\''+encodeURIComponent(h.name)+'\\')">强制更新</button></td></tr>').join('');
  }catch(e){document.getElementById('meta').textContent='连接失败: '+e.message}
 }
 async function forceUpdate(name){try{const r=await fetch('/api/update/force',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},cfgHeaders()),body:JSON.stringify({name:decodeURIComponent(name)})});const j=await r.json();toast(j.ok?'已排队: '+decodeURIComponent(name):(j.error||'失败'))}catch(e){toast('失败: '+e.message)}}
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+t.dataset.v));if(t.dataset.v==='update')loadCfg();if(t.dataset.v==='install')genInstall()});
+document.querySelectorAll('div.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('div.tab').forEach(x=>x.classList.toggle('active',x===t));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+t.dataset.v));if(t.dataset.v==='update')loadCfg();if(t.dataset.v==='install')genInstall()});
 async function genInstall(){
  const name=document.getElementById('i-name').value.trim()||'my-server';
   const osEl=document.querySelector('input[name="i-os"]:checked');
@@ -441,7 +441,7 @@ document.getElementById('btn-save').onclick=async()=>{
  try{const r=await fetch('/api/update/config',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},cfgHeaders()),body:JSON.stringify(cfg)});const j=await r.json();toast(j.ok?'已保存':'失败');document.getElementById('cfg-msg').textContent=j.ok?('目标 '+cfg.version+', armed='+cfg.armed):(j.error||'')}catch(e){toast('失败: '+e.message)}
 };
 document.getElementById('btn-refresh').onclick=async()=>{try{const r=await fetch('/api/update/refresh-sums',{method:'POST',headers:cfgHeaders()});const j=await r.json();toast(j.ok?('SHA256 已刷新 ('+Object.keys(j.sums||{}).length+' 项)'):(j.error||'失败'))}catch(e){toast('失败: '+e.message)}};
-(function(){const h=(location.hash||'').replace('#','');if(h==='install'||h==='update'){const t=Array.from(document.querySelectorAll('.tab')).find(x=>x.dataset.v===h);if(t)t.click()}})();
+(function(){const h=(location.hash||'').replace('#','');if(h==='install'||h==='update'){const t=Array.from(document.querySelectorAll('div.tab')).find(x=>x.dataset.v===h);if(t)t.click()}})();
 load();setInterval(load,2000);
 </script></body></html>`;
 
