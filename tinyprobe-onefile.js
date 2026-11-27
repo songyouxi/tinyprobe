@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-// tinyprobe one-file build: node tinyprobe-onefile.js hub [--port 8090]
+// tinyprobe one-file build: node tinyprobe-onefile.js hub [--port 47821]
 //                          node tinyprobe-onefile.js probe [--hub URL] [--name NAME]
 // Both roles in one file. Zero dependencies, Node.js built-ins only.
 
@@ -8,7 +8,7 @@ const role = process.argv[2];
 if (role === 'hub') requireHub();
 else if (role === 'probe') requireProbe();
 else {
-  console.error('Usage: node tinyprobe-onefile.js hub [--port 8090] [--token S]\n' +
+  console.error('Usage: node tinyprobe-onefile.js hub [--port 47821] [--token S]\n' +
                 '       node tinyprobe-onefile.js probe [--hub URL] [--name N] [--interval 1] [--token S]');
   process.exit(1);
 }
@@ -26,7 +26,7 @@ function requireProbe() {
   const fs = require('fs');
   const path = require('path');
 
-  const HUB = arg('hub', 'http://127.0.0.1:8090');
+  const HUB = arg('hub', 'http://127.0.0.1:47821');
   const NAME = arg('name', os.hostname());
   const INTERVAL = Math.max(1, parseInt(arg('interval', '1'), 10) || 1);
   const TOKEN = arg('token', '');
@@ -110,7 +110,7 @@ function requireProbe() {
 /* -------------------------------- HUB -------------------------------- */
 function requireHub() {
   const http = require('http');
-  const PORT = parseInt(arg('port', '8090'), 10) || 8090;
+  const PORT = parseInt(arg('port', '47821'), 10) || 47821;
   const TOKEN = arg('token', '');
   const KEEP = Math.max(10, parseInt(arg('keep', '180'), 10) || 180);
   const hosts = new Map();
