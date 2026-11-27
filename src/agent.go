@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -242,8 +243,30 @@ func main() {
 	diskPath := flag.String("disk", defaultDiskPath(), "disk mount/drive to monitor")
 	token := flag.String("token", "", "optional X-Token")
 	service := flag.String("service", "tinyprobe", "systemd unit / scheduled task name for self-update restart")
+	envfile := flag.String("envfile", "", "optional root-only env file (KEY=VALUE) for secrets")
 	flag.Parse()
 	ServiceName = *service
+
+	// Load secrets from a hidden root-only file so `ps` never shows plaintext.
+	if *envfile != "" {
+		if b, err := os.ReadFile(*envfile); err == nil {
+			for _, line := range strings.Split(string(b), "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") { continue }
+				kv := strings.SplitN(line, "=", 2)
+				if len(kv) != 2 { continue }
+				k, v := strings.TrimSpace(kv[0]), strings.TrimSpace(kv[1])
+				switch k {
+				case "TP_HUB": *hub = v
+				case "TP_NAME": *name = v
+				case "TP_TOKEN": *token = v
+				case "TP_SERVICE": *service = v; ServiceName = v
+				case "TP_INTERVAL": if n, e := strconv.Atoi(v); e == nil { *interval = n }
+				case "TP_DISK": *diskPath = v
+				}
+			}
+		}
+	}
 
 	host, _ := os.Hostname()
 	if *name == "" {
