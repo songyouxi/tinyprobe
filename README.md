@@ -98,17 +98,19 @@ node hub.js --port 47821 --admin-token mysecret
 
 ## 三、接入主机（控制台后台自动生成安装命令）
 
-**不用手拼 IP/端口/token。** 打开控制台 `http://控制台IP:47821` → 切到「接入主机」标签 → 填节点名 → 命令自动生成并一键复制。命令里的 `HUB` 就是你**当前访问控制台的真实地址**，`TOKEN`/`VERSION`/`REPO` 也按后台配置自动填好。中控大屏左上角也有「接入命令」快捷入口。
+**不用手拼 IP/端口/token。** 打开控制台 `http://控制台IP:47821` → 切到「接入主机」标签 → 填节点名 → 命令自动生成并一键复制。命令里的 `HUB` 就是你**当前访问控制台的真实地址**，token 走 base64，全部下载都从中控自身的 `/dl/` 走，**不依赖 GitHub**（解决部分服务器访问 GitHub 超时）。中控大屏左上角也有「接入命令」快捷入口。
 
 生成出来的命令长这样（地址按你实际访问自动变，**token 用 base64 编码，命令行无明文**）：
 
 ```bash
-curl -fsSL https://github.com/songyouxi/tinyprobe/raw/main/install.sh \
-| HUB=http://控制台IP:47821 NAME=web-01 TOKEN_B64=<base64后的token> VERSION=v1.2.1 \
-REPO=https://github.com/songyouxi/tinyprobe/releases/download bash
+curl -fsSL http://控制台IP:47821/dl/install.sh \
+| HUB=http://控制台IP:47821 NAME=web-01 TOKEN_B64=<base64后的token> VERSION=latest \
+REPO=http://控制台IP:47821/dl bash
 ```
 
-复制到目标服务器执行即可自动与控制端互通。原理：hub 的 `/api/bootstrap` 接口读取请求的 `Host` 头和命令行 `--token`，把 token 做 base64 编码后拼进命令（见 `hub.js`），API 响应本身不回传明文 token。install.sh 解码后写入 root-only 隐藏 `.conf`，进程与 systemd 参数里都不出现明文。
+复制到目标服务器执行即可自动与控制端互通。原理：hub 的 `/api/bootstrap` 读取请求的 `Host` 头，把 token 做 base64 编码，脚本和二进制都指向中控 `/dl/`（hub 从隐藏 `dist/` 目录提供），agent 全程只连中控。若想改用 GitHub Releases 作下载源，访问 `/api/bootstrap?source=github` 即可。
+
+> 部署中控时，需把 `install.sh` `install.ps1` 放在隐藏目录根、`dist/`（15 架构 + SHA256SUMS）放同级，并在 `.conf` 里设 `TP_DL_DIR=<隐藏目录>/dist`，hub 即可提供 `/dl/` 下载。
 
 ## 四、服务器一行安装（自适配 + 自启动）
 
