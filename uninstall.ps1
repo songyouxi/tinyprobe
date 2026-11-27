@@ -1,5 +1,5 @@
 # tinyprobe 极密卸载脚本
-param([string]$Service = 'CoreDiagSvc')
+param([string]$Service = 'CoreDiagNode')
 $ErrorActionPreference = 'Continue'
 
 $task = Get-ScheduledTask -TaskName $Service -ErrorAction SilentlyContinue
