@@ -2,6 +2,11 @@
 
 本项目版本号遵循语义化版本（SemVer）。每条记录列出该版本的新增、变更与修复。
 
+### 变更（自托管下载源）
+- **中控自托管下载 `/dl/`**：hub 新增 `/dl/` 路由，直接提供 install.sh / install.ps1 / 15 个架构二进制 / SHA256SUMS，agent 全程只连中控域名+端口，无需访问 GitHub（解决部分服务器访问 GitHub 超时问题）。
+- `/api/bootstrap` 默认生成自托管命令（下载源=中控自身，`VERSION=latest`，token 走 base64）；支持 `?source=github` 切回 GitHub Releases。
+- 保留 GitHub Releases 作为备用分发源。
+
 ## v1.2.1
 
 发布日期：2026-11-27
