@@ -55,15 +55,24 @@ const update = Object.assign({}, defaultUpdate);
 loadState();
 
 let saveTimer = null;
-function saveState() {
+let lastStateWrite = 0;
+const STATE_MIN_INTERVAL = 5000; // throttle: heavy report traffic must not thrash the disk
+
+// Persist only what's needed to restore after a restart: the config and each
+// host's latest snapshot (NOT the full 180-point history). This keeps the file
+// small and the write cheap regardless of host count.
+function saveState(immediate) {
+  const now = Date.now();
+  if (!immediate && now - lastStateWrite < STATE_MIN_INTERVAL) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
       const obj = { update, hosts: {} };
-      for (const [k, v] of hosts) obj.hosts[k] = { latest: v.latest, history: v.history };
+      for (const [k, v] of hosts) obj.hosts[k] = { latest: v.latest };
       fs.writeFileSync(STATE_FILE, JSON.stringify(obj));
+      lastStateWrite = Date.now();
     } catch (e) { console.error('save state:', e.message); }
-  }, 500);
+  }, immediate ? 0 : STATE_MIN_INTERVAL);
 }
 
 // ---------- helpers ----------
@@ -256,7 +265,7 @@ function handleApi(req, res, u) {
       for (const k of ['version', 'urlTemplate', 'sumsTemplate', 'armed', 'perArch']) {
         if (k in cfg) update[k] = cfg[k];
       }
-      saveState();
+      saveState(true);
       // pre-fetch sums for the new version
       if (update.version && !update.shaCache[update.version]) {
         refreshSums(() => {});
