@@ -213,6 +213,37 @@ function snapshot() {
 function handleApi(req, res, u) {
   if (u.pathname === '/api/data') return json(res, 200, snapshot());
 
+  // Auto-generate the agent install command from the ACTUAL request host/port.
+  // So whatever address the operator used to reach the console is exactly what
+  // gets baked into the agent — no manual IP/port/token stitching.
+  if (u.pathname === '/api/bootstrap') {
+    const name = (u.searchParams.get('name') || '').trim() || 'my-server';
+    const hostHdr = req.headers['host'] || ('127.0.0.1:' + PORT);
+    // Derive the hub base URL from the Host header the browser actually used.
+    // Trust X-Forwarded-* when behind a reverse proxy.
+    const fwdProto = req.headers['x-forwarded-proto'];
+    const proto = (fwdProto ? fwdProto.split(',')[0] : (hostHdr.includes('47821') || hostHdr.startsWith('localhost') ? 'http' : 'http'));
+    const hubBase = proto + '://' + hostHdr;
+    // Repo/version: prefer configured values, fall back to sensible defaults.
+    const repo = (update.repoBase || 'https://github.com/songyouxi/tinyprobe/releases/download').replace(/\/$/, '');
+    const ver = (update.version || 'v1.0.0');
+    const token = TOKEN || '';
+    // Build the one-line install command (env vars before `bash`).
+    const env = [
+      'HUB=' + hubBase,
+      'NAME=' + name,
+      token ? 'TOKEN=' + token : '',
+      'VERSION=' + ver,
+      'REPO=' + repo,
+    ].filter(Boolean).join(' ');
+    const installUrl = repo.replace(/\/releases\/download.*$/, '') + '/raw/main/install.sh';
+    const command = 'curl -fsSL ' + installUrl + ' | ' + env + ' bash';
+    return json(res, 200, {
+      command, hubBase, name, version: ver, repo,
+      token, hasToken: !!token, installUrl,
+    });
+  }
+
   if (u.pathname === '/api/update/config' && req.method === 'GET') {
     if (!isAdmin(req)) return json(res, 403, { error: 'admin token required' });
     return json(res, 200, update);
@@ -289,8 +320,28 @@ code{background:#21262d;padding:1px 5px;border-radius:4px;font-size:12px}
 .tag{font-size:11px;color:var(--mut)}
 </style></head><body>
 <header><span class="dot"></span><h1>tinyprobe 控制台</h1><span class="meta" id="meta">连接中…</span></header>
-<div class="tabs"><div class="tab active" data-v="hosts">主机</div><div class="tab" data-v="update">远程更新</div></div>
+<div class="tabs"><div class="tab active" data-v="hosts">主机</div><div class="tab" data-v="install">接入主机</div><div class="tab" data-v="update">远程更新</div></div>
 <div class="view active" id="v-hosts"><div class="wrap" id="wrap"></div></div>
+<div class="view" id="v-install">
+ <div class="panel">
+  <h3 style="margin-top:0">一键接入新主机</h3>
+  <div class="hint">控制台已根据你当前访问的地址自动填好 <code>HUB</code> / <code>TOKEN</code> / <code>VERSION</code> / <code>REPO</code>。只需填节点名，复制命令到目标服务器执行即可自动互通。</div>
+  <div class="field" style="margin-top:14px"><label>节点名 NAME（每台唯一）</label><input type="text" id="i-name" placeholder="web-01"></div>
+  <div class="field"><label>生成的安装命令（已按本控制台地址拼好）</label>
+   <div style="display:flex;gap:8px;align-items:flex-start">
+    <textarea id="i-cmd" readonly style="flex:1;min-height:96px;background:#0d1117;border:1px solid var(--bd);border-radius:6px;color:var(--cyan);padding:10px;font:12px/1.6 monospace;resize:vertical"></textarea>
+   </div>
+  </div>
+  <div class="row">
+   <button class="btn" id="btn-copy">复制命令</button>
+   <button class="btn ghost" id="btn-gen">重新生成</button>
+  </div>
+  <div id="i-info" class="hint" style="margin-top:12px"></div>
+  <div class="hint" style="margin-top:10px">
+   <b>前提条件：</b>GitHub Release <code>v1.0.0</code> 已发布（含 12 个架构二进制 + SHA256SUMS）。若还没发，先按 README 建 Release，否则脚本会下载 404。
+  </div>
+ </div>
+</div>
 <div class="view" id="v-update">
  <div class="panel">
   <h3 style="margin-top:0">更新配置</h3>
@@ -340,7 +391,24 @@ async function load(){
  }catch(e){document.getElementById('meta').textContent='连接失败: '+e.message}
 }
 async function forceUpdate(name){try{const r=await fetch('/api/update/force',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},cfgHeaders()),body:JSON.stringify({name:decodeURIComponent(name)})});const j=await r.json();toast(j.ok?'已排队: '+decodeURIComponent(name):(j.error||'失败'))}catch(e){toast('失败: '+e.message)}}
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+t.dataset.v));if(t.dataset.v==='update')loadCfg()});
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='v-'+t.dataset.v));if(t.dataset.v==='update')loadCfg();if(t.dataset.v==='install')genInstall()});
+async function genInstall(){
+ const name=document.getElementById('i-name').value.trim()||'my-server';
+ try{
+  const r=await fetch('/api/bootstrap?name='+encodeURIComponent(name));
+  const j=await r.json();
+  document.getElementById('i-cmd').value=j.command||'';
+  document.getElementById('i-info').innerHTML='控制端地址 <b>'+H(j.hubBase)+'</b> · 版本 <b>'+H(j.version)+'</b> · 令牌 <b>'+(j.hasToken?'已自动填入':'未启用')+'</b><br>命令里的 <code>HUB</code> 就是你访问本控制台的地址，无需再手改。';
+ }catch(e){document.getElementById('i-info').textContent='生成失败: '+e.message}
+}
+document.getElementById('btn-gen').onclick=genInstall;
+document.getElementById('i-name').addEventListener('input',()=>{clearTimeout(window._gi);window._gi=setTimeout(genInstall,300)});
+document.getElementById('btn-copy').onclick=async()=>{
+ const txt=document.getElementById('i-cmd').value;if(!txt){toast('请先生成命令');return}
+ try{await navigator.clipboard.writeText(txt);toast('命令已复制')}catch(e){
+  const ta=document.getElementById('i-cmd');ta.select();document.execCommand('copy');toast('命令已复制');
+ }
+};
 async function loadCfg(){try{const r=await fetch('/api/update/config',{headers:cfgHeaders()});if(!r.ok){document.getElementById('cfg-msg').textContent='需要管理令牌';return}const c=await r.json();document.getElementById('c-version').value=c.version||'';document.getElementById('c-url').value=c.urlTemplate||'';document.getElementById('c-sums').value=c.sumsTemplate||'';document.getElementById('c-armed').checked=!!c.armed}catch(e){document.getElementById('cfg-msg').textContent=e.message}}
 document.getElementById('btn-save').onclick=async()=>{
  const t=document.getElementById('c-admin').value.trim();if(t){adminToken=t;sessionStorage.setItem('tp-admin',t)}
@@ -348,6 +416,7 @@ document.getElementById('btn-save').onclick=async()=>{
  try{const r=await fetch('/api/update/config',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},cfgHeaders()),body:JSON.stringify(cfg)});const j=await r.json();toast(j.ok?'已保存':'失败');document.getElementById('cfg-msg').textContent=j.ok?('目标 '+cfg.version+', armed='+cfg.armed):(j.error||'')}catch(e){toast('失败: '+e.message)}
 };
 document.getElementById('btn-refresh').onclick=async()=>{try{const r=await fetch('/api/update/refresh-sums',{method:'POST',headers:cfgHeaders()});const j=await r.json();toast(j.ok?('SHA256 已刷新 ('+Object.keys(j.sums||{}).length+' 项)'):(j.error||'失败'))}catch(e){toast('失败: '+e.message)}};
+(function(){const h=(location.hash||'').replace('#','');if(h==='install'||h==='update'){const t=Array.from(document.querySelectorAll('.tab')).find(x=>x.dataset.v===h);if(t)t.click()}})();
 load();setInterval(load,2000);
 </script></body></html>`;
 
@@ -400,7 +469,7 @@ body::before{content:"";position:absolute;inset:0;background-image:linear-gradie
 .archbar{display:flex;flex-wrap:wrap;gap:6px}.ach{font-size:11px;padding:3px 9px;border:1px solid var(--bd);border-radius:12px;color:var(--mut)}.ach b{color:var(--cyan);margin-left:4px}
 </style></head><body>
 <div class="head">
- <div class="link">控制台 <a href="/">/ 返回</a></div>
+ <div class="link">控制台 <a href="/">/ 返回</a> · <a href="/#install">/ 接入命令</a></div>
  <h1>TINYPROBE 服务器监控中心</h1><div class="en">GLOBAL INFRASTRUCTURE MONITORING CENTER</div>
  <div class="clock"><span id="clock">--:--:--</span><small id="date">----</small></div>
 </div>
