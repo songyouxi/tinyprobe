@@ -235,7 +235,7 @@ function handleApi(req, res, u) {
     const hubBase = proto + '://' + hostHdr;
     // Repo/version: prefer configured values, fall back to sensible defaults.
     const repo = (update.repoBase || 'https://github.com/songyouxi/tinyprobe/releases/download').replace(/\/$/, '');
-    const ver = (update.version || 'v1.0.0');
+    const ver = (update.version || 'v1.1.0');
     const token = TOKEN || '';
     // Build the one-line install command (env vars before `bash`).
     const env = [
@@ -347,7 +347,7 @@ code{background:#21262d;padding:1px 5px;border-radius:4px;font-size:12px}
   </div>
   <div id="i-info" class="hint" style="margin-top:12px"></div>
   <div class="hint" style="margin-top:10px">
-   <b>前提条件：</b>GitHub Release <code>v1.0.0</code> 已发布（含 12 个架构二进制 + SHA256SUMS）。若还没发，先按 README 建 Release，否则脚本会下载 404。
+   <b>前提条件：</b>GitHub Release <code>v1.1.0</code> 已发布（含 12 个架构二进制 + SHA256SUMS）。若还没发，先按 README 建 Release，否则脚本会下载 404。
   </div>
  </div>
 </div>
