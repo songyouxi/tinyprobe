@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // tinyprobe hub + management console — zero dependencies.
-// Usage: node hub.js [--port 8090] [--token SECRET] [--keep 180] [--state hub-state.json]
+// Usage: node hub.js [--port 47821] [--token SECRET] [--keep 180] [--state hub-state.json]
 //
 // Remote update model:
 //   - Hub holds a desired version, a URL template (with {arch} and {ver}),
@@ -21,7 +21,7 @@ function arg(key, def) {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : def;
 }
 
-const PORT = parseInt(arg('port', '8090'), 10) || 8090;
+const PORT = parseInt(arg('port', '47821'), 10) || 47821;
 const TOKEN = arg('token', '');
 const ADMIN_TOKEN = arg('admin-token', TOKEN || 'admin');
 const KEEP = Math.max(10, parseInt(arg('keep', '180'), 10) || 180);
