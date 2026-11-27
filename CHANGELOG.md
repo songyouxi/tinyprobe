@@ -2,6 +2,24 @@
 
 本项目版本号遵循语义化版本（SemVer）。每条记录列出该版本的新增、变更与修复。
 
+## v1.2.0
+
+发布日期：2026-11-27
+
+### 新增
+- **Windows 平台支持**：agent 改用跨平台架构（Linux `/proc` + Windows Win32 API，纯标准库动态调用 DLL，无外部依赖）。
+  - Windows 原生采集：CPU（GetSystemTimes）、内存（GlobalMemoryStatusEx）、磁盘（GetDiskFreeSpaceEx）、网络（GetIfTable2）、运行时间（GetTickCount64）。
+  - 新增 Windows 三架构二进制：`probe-windows-amd64.exe` / `386.exe` / `arm64.exe`（静态 PE，约 5 MB）。
+  - **Windows 自更新**：因运行中的 exe 被锁定，改为暂存 `.new` + SHA256 校验 + `.swap.bat` 助手等待进程退出后替换并重启。
+- **Windows 一键安装**：`install.ps1` / `uninstall.ps1`，自动探测架构、下载校验、注册「开机自启计划任务」（SYSTEM 权限、失败自动重启）。
+- **控制台系统选择**：「接入主机」标签新增 Linux / Windows 切换，Windows 自动生成 PowerShell `irm | iex` 安装命令（含 `$env:HUB/NAME/TOKEN/VERSION/REPO`）。
+- `/api/bootstrap` 新增 `os` 参数。
+
+### 变更
+- agent 源码拆分为 `src/agent.go` + `src/agent_linux.go` + `src/agent_windows.go`，按 build tag 分平台编译。
+- 二进制总数由 12 个增至 15 个（Linux 12 + Windows 3），`SHA256SUMS` 同步扩展到 15 条。
+- 默认版本统一升至 `v1.2.0`（hub bootstrap 默认值、安装脚本示例、文档）。
+
 ## v1.1.0
 
 发布日期：2026-11-27
