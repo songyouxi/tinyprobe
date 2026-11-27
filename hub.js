@@ -43,6 +43,9 @@ const STATE_FILE = arg('state', env.TP_STATE || path.join(__dirname, 'hub-state.
 
 /** @type {Map<string, {latest:any, history:any[], pending:any|null}>} */
 const hosts = new Map();
+// Names explicitly deleted by the operator. Reports from these are answered
+// with a persistent uninstall command and never re-create the host record.
+const removedNames = new Set();
 
 // ---------- update config (persisted) ----------
 const defaultUpdate = {
@@ -63,6 +66,7 @@ function loadState() {
         hosts.set(k, { latest: v.latest || null, history: v.history || [], pending: null });
       }
     }
+    if (s && Array.isArray(s.removed)) s.removed.forEach(n => removedNames.add(n));
   } catch (_) { /* fresh state */ }
 }
 const update = Object.assign({}, defaultUpdate);
@@ -81,7 +85,7 @@ function saveState(immediate) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
-      const obj = { update, hosts: {} };
+      const obj = { update, hosts: {}, removed: Array.from(removedNames) };
       for (const [k, v] of hosts) obj.hosts[k] = { latest: v.latest };
       fs.writeFileSync(STATE_FILE, JSON.stringify(obj));
       lastStateWrite = Date.now();
@@ -194,6 +198,8 @@ function handleReport(req, res) {
     let d;
     try { d = JSON.parse(body); } catch (_) { return json(res, 400, { error: 'bad json' }); }
     if (!d || !d.name) return json(res, 400, { error: 'missing name' });
+    // Deleted hosts are answered with uninstall and never re-registered.
+    if (removedNames.has(d.name)) return json(res, 200, { ok: true, cmd: { cmd: 'uninstall' } });
     d.time = Date.now();
     // Record the real source IP from the TCP connection (or proxy header).
     // This is the agent's actual public IP, independent of what it self-reports.
@@ -226,7 +232,7 @@ function snapshot() {
   const now = Date.now();
   const list = [];
   for (const [name, h] of hosts) {
-    if (!h.latest || h.uninstall) continue;
+    if (!h.latest || h.uninstall || removedNames.has(name)) continue;
     const l = h.latest;
     list.push({
       name, online: now - l.time < 15000, time: l.time,
@@ -263,6 +269,8 @@ function handleApi(req, res, u) {
     // Keep a tombstone record with uninstall flag so the next report delivers
     // the uninstall command; it is hidden from the UI and pruned afterwards.
     h.uninstall = true;
+    removedNames.add(name);
+    hosts.delete(name);
     saveState(true);
     return json(res, 200, { ok: true, deleted: name, uninstallQueued: true });
   }
