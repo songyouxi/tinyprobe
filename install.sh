@@ -7,7 +7,7 @@
 #   HUB=http://监控端IP:47821 NAME=web-01 bash install.sh
 # 或带参数：
 #   bash install.sh --hub http://监控端IP:47821 --name web-01 --token SECRET \
-#     --repo https://raw.githubusercontent.com/OWNER/REPO/main/dist --version v1.0.0
+#     --repo https://raw.githubusercontent.com/OWNER/REPO/main/dist --version v1.1.0
 #
 # 环境变量也可：HUB, NAME, TOKEN, REPO, VERSION, SERVICE, INTERVAL, INSTALL_DIR
 
