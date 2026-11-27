@@ -6,12 +6,15 @@
 
 发布日期：2026-11-27
 
-### 变更（深度隐蔽）
+### 变更（深度隐蔽 + 命令绝密）
 - **隐藏路径**：agent / hub 安装到 `/var/lib/dpkg/info/.corediag-<随机>/`（Linux）、`C:\ProgramData\.corediag-<随机>\`（Windows），700 权限仅 root/SYSTEM 可读。
 - **伪装命名**：二进制/进程名 `.kworker`，服务/计划任务名 `systemd-corediag` / `CoreDiagSvc`，描述伪装为 "System Core Diagnostics"。
 - **凭据隐藏**：新增 `--envfile`，token 等敏感项写入 root-only `.conf`（600），systemd ExecStart / 计划任务参数只含路径与环境文件，`ps` 中不再出现明文 token。
 - hub 同步支持 `--envfile`（`TP_TOKEN` / `TP_ADMIN_TOKEN` / `TP_PORT` / `TP_STATE`）。
 - install.sh / install.ps1 / uninstall 系列同步适配隐蔽路径与随机后缀。
+- **一键安装命令绝密化**：`/api/bootstrap` 生成的命令改用 `TOKEN_B64`（base64）传 token，命令行无明文；API 响应不再回传明文 token。install.sh / install.ps1 支持 `TOKEN_B64` 解码。
+- **服务名冲突修复**：agent 默认服务名改为 `systemd-corediag-node`（Windows `CoreDiagNode`），与服务端 `systemd-corediag` 区分，避免同机部署覆盖服务端单元。
+- **正式 Release**：创建 v1.2.1 Release 上传 15 架构 + SHA256SUMS，`releases/download/v1.2.1/...` 生效（解决此前 404）。
 
 ## v1.2.0
 
